@@ -30,6 +30,11 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     :root {
@@ -67,6 +72,8 @@
     .panel{background:#fff;border:1px solid var(--line);border-radius:20px;padding:18px;box-shadow:var(--shadow-soft)}.panel h3{margin:0 0 12px;font-size:18px}.dashboard-grid{display:grid;grid-template-columns:2fr 1fr;gap:18px}.two-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.three-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.filters{display:grid;grid-template-columns:1.8fr 1fr 1fr 1fr auto;gap:10px;align-items:end;margin-bottom:12px}.field{display:flex;flex-direction:column;gap:7px;margin-bottom:14px}.field label{font-weight:800;font-size:13px;color:#374151}.field input,.field select,.field textarea{width:100%;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:14px;padding:12px 13px;outline:none;transition:.15s}.field textarea{min-height:96px;resize:vertical}.field input:focus,.field select:focus,.field textarea:focus{border-color:rgba(15,76,129,.75);box-shadow:0 0 0 4px rgba(15,76,129,.10)}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 14px}.form-grid .span-2{grid-column:span 2}.section-card{border-top:4px solid var(--red);background:#fff;border-radius:22px;border:1px solid var(--line);padding:20px;box-shadow:var(--shadow-soft);margin-bottom:16px}.section-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}.section-title h3{margin:0}.step-pill{background:#eef6ff;color:var(--red);border-radius:999px;width:34px;height:34px;display:grid;place-items:center;font-weight:900}
     .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:16px}table{width:100%;border-collapse:collapse;background:#fff}th{font-size:12px;text-align:left;color:#374151;background:#eff7ff;padding:13px;border-bottom:1px solid var(--line);white-space:nowrap}td{font-size:13px;padding:13px;border-bottom:1px solid var(--line);vertical-align:top}tr:hover td{background:#f8fbff}.badge{display:inline-flex;align-items:center;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:850;background:#eef2ff;color:#1d4ed8}.badge.success{background:#dcfce7;color:#166534}.badge.warning{background:#ffedd5;color:#9a3412}.badge.danger{background:#fee2e2;color:#991b1b}.badge.gray{background:#f3f4f6;color:#374151}.badge.red{background:#eef6ff;color:var(--red)}.empty{border:1px dashed #f2bdc6;background:#fff7f8;border-radius:18px;padding:30px;text-align:center;color:var(--muted)}
     .calendar-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}.weekdays,.calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}.weekday{text-align:center;font-weight:900;color:#6b7280;font-size:12px}.day{min-height:112px;border:1px solid var(--line);border-radius:14px;background:#fff;padding:8px;overflow:hidden}.day.other{background:#f3f4f6;color:#9ca3af}.day.today{border-color:var(--red);box-shadow:0 0 0 2px rgba(15,76,129,.08)}.day-num{display:flex;justify-content:space-between;font-weight:900;font-size:13px;margin-bottom:8px}.cal-chip{display:block;width:100%;text-align:left;background:#475569;color:#fff;border-radius:9px;padding:5px 7px;margin:4px 0;font-size:11px;font-weight:850;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mini-item{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;border:1px solid var(--line);border-radius:14px;background:#fafafa;padding:12px;margin-bottom:10px}.mini-item strong{display:block}.mini-item span{display:block;color:var(--muted);font-size:12px;margin-top:4px;line-height:1.45}.bar{height:12px;border-radius:999px;background:#f3f4f6;overflow:hidden}.bar span{display:block;height:100%;background:linear-gradient(90deg,var(--red),#f97386);border-radius:999px}.toast{position:fixed;right:24px;bottom:24px;background:#111827;color:#fff;border-radius:16px;padding:14px 16px;box-shadow:var(--shadow);z-index:50;max-width:360px}.modal-backdrop{position:fixed;inset:0;background:rgba(17,24,39,.45);display:grid;place-items:center;z-index:60;padding:24px}.modal{width:min(920px,96vw);max-height:86vh;overflow:hidden;background:#fff;border-radius:24px;box-shadow:var(--shadow);display:flex;flex-direction:column}.modal header{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--line)}.modal header h3{margin:0}.modal .body{padding:20px;overflow:auto}.modal footer{padding:14px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px}.detail-grid{display:grid;grid-template-columns:220px 1fr;gap:0;border:1px solid var(--line);border-radius:16px;overflow:hidden}.detail-grid div{padding:11px 13px;border-bottom:1px solid var(--line)}.detail-grid div:nth-child(odd){background:#fafafa;font-weight:900;color:#6b7280}.detail-grid div:last-child,.detail-grid div:nth-last-child(2){border-bottom:0}
+    .panorix-map-marker{width:22px;height:22px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(15,23,42,.38)}
+    .leaflet-container{font-family:Inter,"Segoe UI",Roboto,Arial,sans-serif;background:#e8eef4}.leaflet-control-attribution{font-size:10px}.leaflet-popup-content{margin:12px 14px;line-height:1.45}
     @media (max-width:1100px){.app{grid-template-columns:92px 1fr}.side-brand div:not(.logo-mark),.side-footer,.nav button span:first-child span.label{display:none}.nav button{justify-content:center}.cards{grid-template-columns:repeat(2,1fr)}.dashboard-grid,.two-grid{grid-template-columns:1fr}.filters{grid-template-columns:1fr}.login-card{grid-template-columns:1fr}.login-hero{display:none}.form-grid{grid-template-columns:1fr}.form-grid .span-2{grid-column:auto}}
   
 
@@ -1285,7 +1292,7 @@
         ["matched","Otomatik eşleşme","select",false,["Evet","Hayır"]],["assignedTo","Sorumlu","userRef",false],["notes","Notlar","textarea",false]
       ],cols:[["no","Kayıt No"],["title","İlan"],["municipalityName","Belediye"],["city","İl"],["keyword","Anahtar Kelime"],["deadline","Son Tarih","date"],["status","Durum","badge"]]},
       billboards:{nav:"Billboardlar",icon:"🪧",title:"Billboard Envanteri",sub:"Açık hava reklam alanları, konum, görsel ve kiralama durumu",prefix:"BB",search:"Kod, tür, adres, il veya durum ara...",depends:["municipalities","tenders"],sections:[
-        {title:"Kimlik ve Konum",note:"Reklam alanının kodu, türü ve adres bilgileri.",fields:["code","type","municipalityId","tenderId","city","district","neighborhood","address","latitude","longitude"]},
+        {title:"Kimlik ve Konum",note:"Açık adresi, mahalleyi, ilçeyi ve ili girin. Sistem kaydederken konumu otomatik bulur ve haritada gösterir.",fields:["code","type","municipalityId","tenderId","city","district","neighborhood","address"]},
         {title:"Teknik Bilgiler",note:"Ölçü, yüz, aydınlatma ve özellikler.",fields:["width","height","faces","lighting","features","status"]},
         {title:"Kiralama ve Gelir",note:"Kiralama dönemi ve fiyat bilgileri.",fields:["rentalStart","rentalEnd","monthlyRate","currency"]},
         {title:"Görsel ve Notlar",note:"Billboard fotoğrafı ve saha notları.",fields:["photo","notes"]}
@@ -1293,7 +1300,7 @@
         ["code","Billboard kodu","text",true],["type","Tür","select",true,BILLBOARD_TYPES],
         ["municipalityId","Belediye","municipalityRef",false],["tenderId","İhale","tenderRef",false],
         ["city","İl","text",true],["district","İlçe","text",false],["neighborhood","Mahalle","text",false],
-        ["address","Adres","textareaHalf",true],["latitude","Enlem","number",true],["longitude","Boylam","number",true],
+        ["address","Açık Adres","textareaHalf",true],["latitude","Enlem","number",false],["longitude","Boylam","number",false],
         ["width","Genişlik (m)","number",false],["height","Yükseklik (m)","number",false],["faces","Yüz sayısı","number",false],
         ["lighting","Aydınlatma","select",false,["Yok","Var","Otomatik","Arızalı"]],["features","Teknik özellikler","checklist",false,BILLBOARD_FEATURES],
         ["status","Durum","select",true,BILLBOARD_STATUS],["rentalStart","Kiralama başlangıcı","date",false],
@@ -1481,7 +1488,7 @@
       firebaseArgs:null, app:null, auth:null, db:null, storage:null, authUser:null, currentUser:null,
       cache:{}, loaded:{}, loading:{}, viewKey:"dashboard", activeModule:"municipalities",
       calendarMonth:new Date(), backendPending:new Map(), lastBackendResponseId:null,
-      messageUnsubscribe:null, map:null, markers:[], clusterer:null, MarkerClusterer:null, currentEditId:null,
+      messageUnsubscribe:null, map:null, markers:[], clusterer:null, currentEditId:null,
       sessionTimer:null
     };
 
@@ -1792,6 +1799,32 @@
         if(type==="checklist"&&value?.Diğer!==undefined&&!String(value.Diğer||"").trim())throw new Error(`${label} içindeki Diğer açıklamasını girin.`);
       }
     }
+    function billboardAddressText(data){
+      return [data.address,data.neighborhood,data.district,data.city,"Türkiye"].map(v=>String(v||"").trim()).filter(Boolean).join(", ");
+    }
+    function billboardAddressChanged(data,old){
+      if(!old)return true;
+      return ["address","neighborhood","district","city"].some(name=>String(data[name]||"").trim()!==String(old?.[name]||"").trim());
+    }
+    async function geocodeBillboard(data,old){
+      const hasOldCoordinates=Number.isFinite(Number(old?.latitude))&&Number.isFinite(Number(old?.longitude));
+      if(!billboardAddressChanged(data,old)&&hasOldCoordinates){
+        data.latitude=Number(old.latitude);
+        data.longitude=Number(old.longitude);
+        data.geocodedAddress=old.geocodedAddress||billboardAddressText(data);
+        data.geocodeSource=old.geocodeSource||"OpenStreetMap Nominatim";
+        return;
+      }
+      const fullAddress=billboardAddressText(data);
+      toast("Adres haritada aranıyor...");
+      const result=await backendCall("geocode_address",{address:fullAddress});
+      data.latitude=Number(result.latitude);
+      data.longitude=Number(result.longitude);
+      data.geocodedAddress=result.displayName||fullAddress;
+      data.geocodeSource=result.source||"OpenStreetMap Nominatim";
+      data.geocodedAt=nowIso();
+    }
+
     function validateBusinessRecord(key,data){
       const datePairs=[["startDate","endDate","Bitiş tarihi başlangıç tarihinden önce olamaz."],["offerDate","validUntil","Teklif geçerlilik tarihi teklif tarihinden önce olamaz."],["invoiceDate","dueDate","Fatura vadesi fatura tarihinden önce olamaz."],["contractStart","contractEnd","Sözleşme bitişi başlangıçtan önce olamaz."],["lastMaintenance","nextMaintenance","Sonraki bakım tarihi son bakımdan önce olamaz."]];
       datePairs.forEach(([a,b,message])=>{if(data[a]&&data[b]&&data[b]<data[a])throw new Error(message);});
@@ -1821,7 +1854,9 @@
         for(const field of m.fields){const [name,,type]=field;if(type==="checklist"){data[name]=collectChecklist(name);continue;}if(type==="multiBillboard"){data[name]=collectMultiRef(name);continue;}if(type==="serviceItems"){data[name]=collectOfferItems();continue;}if(type==="file"||type==="image")continue;const el=$("f_"+name);if(!el)continue;data[name]=type==="number"?(el.value===""?0:Number(el.value)):el.value;}
         if(key==="offers"){const gross=(data.lineItems||[]).reduce((sum,item)=>sum+Number(item.vatIncluded||0),0);data.totalAmount=Math.max(0,gross-gross*Number(data.discountRate||0)/100);}
         if(key==="invoices"){data.balance=Math.max(0,Number(data.totalAmount||0)-Number(data.paidAmount||0));}
-        validateRequiredFields(m,data,old,false);validateBusinessRecord(key,data);
+        validateRequiredFields(m,data,old,false);
+        if(key==="billboards")await geocodeBillboard(data,old);
+        validateBusinessRecord(key,data);
         if(key==="reservations")await validateReservation(data,id);
         const ref=id?state.db.collection(COLLECTIONS[key]).doc(id):state.db.collection(COLLECTIONS[key]).doc();
         if(!id)data.no=await nextSequence(key,m.prefix);
@@ -1884,38 +1919,50 @@
     async function showCalendar(){state.viewKey="calendar";renderNav();setTitle("Takvim","İhale, sözleşme, görev ve operasyon görünümü");$("view").innerHTML=loadingHtml();await Promise.all(["tenders","contracts","operations","tasks","customers"].map(ensureCollection));$("view").innerHTML=`<div class="panel">${calendarHtml()}</div>${moduleActions('<button class="btn ghost small" onclick="App.showDashboard()">Anasayfaya Dön</button>')}`;}
     function moveMonth(n){state.calendarMonth.setMonth(state.calendarMonth.getMonth()+n);showCalendar();}function thisMonth(){state.calendarMonth=new Date();showCalendar();}function openCalendarItem(key,id){openDetail(key,id);}
 
-    async function loadGoogleMaps(){
-      if(!window.google?.maps){
-        const key=state.firebaseArgs?.google_maps_api_key||"";if(!key)throw new Error("GOOGLE_MAPS_API_KEY tanımlanmamış.");
-        await new Promise((resolve,reject)=>{window.__panorixMapsReady=resolve;const s=document.createElement("script");s.src=`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=marker&v=weekly&loading=async&callback=__panorixMapsReady`;s.async=true;s.onerror=()=>reject(new Error("Google Maps yüklenemedi."));document.head.appendChild(s);});
-      }
-      if(!state.MarkerClusterer){
-        try{
-          const clusterModule=await import("https://cdn.jsdelivr.net/npm/@googlemaps/markerclusterer@2.5.3/+esm");
-          state.MarkerClusterer=clusterModule.MarkerClusterer||null;
-        }catch(_error){ state.MarkerClusterer=null; }
-      }
+    async function loadOpenStreetMap(){
+      if(!window.L)throw new Error("OpenStreetMap harita kütüphanesi yüklenemedi. İnternet bağlantısını kontrol edin.");
     }
     async function showMap(){
-      if(!can("billboards","view")){toast("Harita için billboard görüntüleme yetkisi gerekir.");return;}state.viewKey="map";renderNav();setTitle("Harita","Billboard konumları, durumlar ve Street View");$("view").innerHTML=loadingHtml();await ensureCollection("billboards");
+      if(!can("billboards","view")){toast("Harita için billboard görüntüleme yetkiniz gerekir.");return;}state.viewKey="map";renderNav();setTitle("Harita","Billboard konumları adres bilgilerinden otomatik oluşturulur");$("view").innerHTML=loadingHtml();await ensureCollection("billboards");
       $("view").innerHTML=`<div class="panel"><div class="filters"><div class="field"><label>Durum</label><select id="mapStatus" onchange="App.renderMapMarkers()"><option value="">Tümü</option>${BILLBOARD_STATUS.map(x=>`<option>${x}</option>`).join("")}</select></div><div class="field"><label>İl</label><input id="mapCity" oninput="App.renderMapMarkers()" placeholder="İl"></div><div class="field"><label>İlçe</label><input id="mapDistrict" oninput="App.renderMapMarkers()" placeholder="İlçe"></div><button class="btn ghost small" onclick="App.showDashboard()">Anasayfaya Dön</button></div><div id="mapCanvas" style="height:calc(100vh - 250px);min-height:460px;border-radius:16px;overflow:hidden;border:1px solid var(--line)"></div></div>`;
-      try{await loadGoogleMaps();const first=getList("billboards").find(x=>Number(x.latitude)&&Number(x.longitude));state.map=new google.maps.Map($("mapCanvas"),{center:first?{lat:Number(first.latitude),lng:Number(first.longitude)}:{lat:39.0,lng:35.0},zoom:first?12:6,mapTypeControl:true,streetViewControl:true,fullscreenControl:true});renderMapMarkers();}catch(err){$("mapCanvas").innerHTML=`<div class="empty">${esc(err.message)} Streamlit Secrets ve Google Cloud API kısıtlarını kontrol edin.</div>`;}
+      try{
+        await loadOpenStreetMap();
+        const locations=getList("billboards").filter(x=>Number.isFinite(Number(x.latitude))&&Number.isFinite(Number(x.longitude)));
+        const first=locations[0];
+        state.map=L.map("mapCanvas",{zoomControl:true,attributionControl:true}).setView(first?[Number(first.latitude),Number(first.longitude)]:[39.0,35.0],first?13:6);
+        L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> katkıda bulunanlar'}).addTo(state.map);
+        renderMapMarkers();
+        setTimeout(()=>state.map?.invalidateSize(),150);
+      }catch(err){$("mapCanvas").innerHTML=`<div class="empty">${esc(err.message)}</div>`;}
     }
     function markerColor(status){return status==="Boş"?"#2E7D32":status==="Kirada"?"#C62828":status==="Rezerve"?"#F9A825":status==="Bakımda"?"#1976D2":"#6B7280";}
-    function renderMapMarkers(){
-      if(!state.map||!window.google?.maps)return;
-      if(state.clusterer){state.clusterer.clearMarkers();state.clusterer=null;}
-      state.markers.forEach(m=>m.setMap(null));state.markers=[];
-      const status=$("mapStatus")?.value||"",city=($("mapCity")?.value||"").toLocaleLowerCase("tr-TR"),district=($("mapDistrict")?.value||"").toLocaleLowerCase("tr-TR");
-      getList("billboards").filter(b=>Number(b.latitude)&&Number(b.longitude)&&(!status||b.status===status)&&(!city||String(b.city||"").toLocaleLowerCase("tr-TR").includes(city))&&(!district||String(b.district||"").toLocaleLowerCase("tr-TR").includes(district))).forEach(b=>{
-        const marker=new google.maps.Marker({position:{lat:Number(b.latitude),lng:Number(b.longitude)},title:`${b.code||b.no} • ${b.status||""}`,icon:{path:google.maps.SymbolPath.CIRCLE,scale:10,fillColor:markerColor(b.status),fillOpacity:1,strokeColor:"#ffffff",strokeWeight:2}});
-        const info=new google.maps.InfoWindow({content:`<div style="min-width:220px"><strong>${esc(b.code||b.no)} • ${esc(b.type||"")}</strong><p>${esc(b.address||"")}</p><p>${badge(b.status)}</p></div>`});
-        marker.addListener("click",()=>{info.open({anchor:marker,map:state.map});openMapDetail(b.id);});state.markers.push(marker);
-      });
-      if(state.MarkerClusterer&&state.markers.length>1){state.clusterer=new state.MarkerClusterer({map:state.map,markers:state.markers});}
-      else{state.markers.forEach(marker=>marker.setMap(state.map));}
+    function leafletBillboardIcon(status){
+      return L.divIcon({className:"",html:`<div class="panorix-map-marker" style="background:${markerColor(status)}"></div>`,iconSize:[22,22],iconAnchor:[11,11],popupAnchor:[0,-12]});
     }
-    function openMapDetail(id){const b=getList("billboards").find(x=>x.id===id);if(!b)return;openModal(`${b.code||b.no} • ${b.type||"Billboard"}`,`<div class="two-grid"><div>${b.photo?.url?`<img src="${esc(b.photo.url)}" alt="Billboard" style="width:100%;max-height:350px;object-fit:cover;border-radius:16px">`:`<div class="empty">Billboard görseli yok.</div>`}<div class="detail-grid" style="margin-top:12px"><div>Adres</div><div>${esc(b.address||"-")}</div><div>Durum</div><div>${badge(b.status)}</div><div>Aylık bedel</div><div>${money(b.monthlyRate,b.currency)}</div></div></div><div id="streetViewCanvas" style="min-height:360px;border-radius:16px;overflow:hidden;border:1px solid var(--line)"></div></div>`,`<button class="btn secondary" onclick="App.showModuleForm('billboards','${id}');App.closeModal()">Düzenle</button><button class="btn ghost" onclick="App.closeModal()">Kapat</button>`);setTimeout(()=>{if(window.google?.maps&&Number(b.latitude)&&Number(b.longitude))new google.maps.StreetViewPanorama($("streetViewCanvas"),{position:{lat:Number(b.latitude),lng:Number(b.longitude)},pov:{heading:0,pitch:0},zoom:1});},100);}
+    function renderMapMarkers(){
+      if(!state.map||!window.L)return;
+      if(state.clusterer){state.map.removeLayer(state.clusterer);state.clusterer=null;}
+      state.markers.forEach(marker=>{try{state.map.removeLayer(marker);}catch(_error){}});state.markers=[];
+      const status=$("mapStatus")?.value||"",city=($("mapCity")?.value||"").toLocaleLowerCase("tr-TR"),district=($("mapDistrict")?.value||"").toLocaleLowerCase("tr-TR");
+      const layer=typeof L.markerClusterGroup==="function"?L.markerClusterGroup({showCoverageOnHover:false,maxClusterRadius:45}):L.layerGroup();
+      const bounds=[];
+      getList("billboards").filter(b=>Number.isFinite(Number(b.latitude))&&Number.isFinite(Number(b.longitude))&&(!status||b.status===status)&&(!city||String(b.city||"").toLocaleLowerCase("tr-TR").includes(city))&&(!district||String(b.district||"").toLocaleLowerCase("tr-TR").includes(district))).forEach(b=>{
+        const lat=Number(b.latitude),lng=Number(b.longitude);
+        const marker=L.marker([lat,lng],{title:`${b.code||b.no} • ${b.status||""}`,icon:leafletBillboardIcon(b.status)});
+        marker.bindTooltip(`${esc(b.code||b.no)} • ${esc(b.status||"")}`,{direction:"top",offset:[0,-10]});
+        marker.bindPopup(`<div style="min-width:220px"><strong>${esc(b.code||b.no)} • ${esc(b.type||"")}</strong><p>${esc(b.address||"")}</p><p>${esc(b.status||"")}</p><button class="btn secondary small" onclick="App.openMapDetail('${b.id}')">Detayı Aç</button></div>`);
+        layer.addLayer(marker);state.markers.push(marker);bounds.push([lat,lng]);
+      });
+      layer.addTo(state.map);state.clusterer=layer;
+      if(bounds.length===1)state.map.setView(bounds[0],16);else if(bounds.length>1)state.map.fitBounds(bounds,{padding:[36,36],maxZoom:16});
+    }
+    function openMapDetail(id){
+      const b=getList("billboards").find(x=>x.id===id);if(!b)return;
+      const lat=Number(b.latitude),lng=Number(b.longitude),hasLocation=Number.isFinite(lat)&&Number.isFinite(lng);
+      const osmUrl=hasLocation?`https://www.openstreetmap.org/?mlat=${encodeURIComponent(lat)}&mlon=${encodeURIComponent(lng)}#map=18/${encodeURIComponent(lat)}/${encodeURIComponent(lng)}`:"#";
+      openModal(`${b.code||b.no} • ${b.type||"Billboard"}`,`<div class="two-grid"><div>${b.photo?.url?`<img src="${esc(b.photo.url)}" alt="Billboard" style="width:100%;max-height:350px;object-fit:cover;border-radius:16px">`:`<div class="empty">Billboard görseli yok.</div>`}<div class="detail-grid" style="margin-top:12px"><div>Adres</div><div>${esc(b.address||"-")}</div><div>Harita adresi</div><div>${esc(b.geocodedAddress||b.address||"-")}</div><div>Durum</div><div>${badge(b.status)}</div><div>Aylık bedel</div><div>${money(b.monthlyRate,b.currency)}</div></div></div><div>${hasLocation?`<div id="billboardDetailMap" style="min-height:360px;border-radius:16px;overflow:hidden;border:1px solid var(--line)"></div><div class="btn-row" style="margin-top:10px"><a class="btn secondary small" href="${osmUrl}" target="_blank" rel="noopener">OpenStreetMap'de Aç</a></div>`:`<div class="empty">Bu kayıt için harita konumu bulunmuyor. Adresi düzenleyip yeniden kaydedin.</div>`}</div></div>`,`<button class="btn secondary" onclick="App.showModuleForm('billboards','${id}');App.closeModal()">Düzenle</button><button class="btn ghost" onclick="App.closeModal()">Kapat</button>`);
+      if(hasLocation)setTimeout(()=>{const detailMap=L.map("billboardDetailMap",{zoomControl:true}).setView([lat,lng],17);L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> katkıda bulunanlar'}).addTo(detailMap);L.marker([lat,lng],{icon:leafletBillboardIcon(b.status)}).addTo(detailMap).bindPopup(esc(b.address||b.code||"Billboard")).openPopup();setTimeout(()=>detailMap.invalidateSize(),100);},100);
+    }
 
     async function showCrm(){
       state.viewKey="leads";renderNav();setTitle("CRM ve Satış Funnel","Fırsatların aşama bazlı görünümü");$("view").innerHTML=loadingHtml();await Promise.all([ensureCollection("leads"),ensureCollection("customers"),ensureCollection("users")]);
@@ -1973,7 +2020,7 @@
     }
 
     function sheetRows(key){const m=MODULES[key];return getList(key).map(r=>{const out={"Kayıt No":r.no||r.code||r.contractNo||r.invoiceNo||""};m.fields.forEach(f=>{let v=r[f[0]];if(REF_TYPES[f[2]])v=refLabel(f[2],v);else if(Array.isArray(v))v=v.map(x=>typeof x==="string"?x:(x.name||JSON.stringify(x))).join(" | ");else if(typeof v==="object"&&v)v=v.name||JSON.stringify(v);out[f[1]]=v??"";});return out;});}
-    function downloadTemplate(key){if(!can(key,"export")){toast("Şablon indirme yetkiniz yok.");return;}const m=MODULES[key];const row={"Kayıt No":""};m.fields.filter(f=>!["file","image"].includes(f[2])).forEach(f=>row[f[1]]="");writeWorkbook(`${m.nav}-Bos-Sablon.xlsx`,key,[row]);auditEvent("download_template",key,"template",{},{}).catch(console.error);}
+    function downloadTemplate(key){if(!can(key,"export")){toast("Şablon indirme yetkiniz yok.");return;}const m=MODULES[key];const row={"Kayıt No":""};m.fields.filter(f=>!["file","image"].includes(f[2])&&!(key==="billboards"&&["latitude","longitude"].includes(f[0]))).forEach(f=>row[f[1]]="");writeWorkbook(`${m.nav}-Bos-Sablon.xlsx`,key,[row]);auditEvent("download_template",key,"template",{},{}).catch(console.error);}
     function exportExcel(key){if(!can(key,"export")){toast("Excel dışa aktarma yetkiniz yok.");return;}const rows=sheetRows(key);if(!rows.length){toast("Dışa aktarılacak kayıt yok.");return;}writeWorkbook(`${MODULES[key].nav}.xlsx`,key,rows);auditEvent("export_excel",key,"collection",{},{rowCount:rows.length}).catch(console.error);}
     function exportCsv(key){
       if(!can(key,"export")){toast("CSV dışa aktarma yetkiniz yok.");return;}const rows=sheetRows(key);if(!rows.length){toast("Dışa aktarılacak kayıt yok.");return;}
@@ -1983,7 +2030,7 @@
     function writeWorkbook(filename,sheetName,rows){if(!window.XLSX){toast("Excel kütüphanesi yüklenemedi.");return;}const ws=XLSX.utils.json_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,sheetName.slice(0,31));XLSX.writeFile(wb,filename);}
     function importExcel(key){
       if(!can(key,"create")){toast("İçe aktarma yetkiniz yok.");return;}
-      if(["reservations","contracts","payments"].includes(key)){toast("Bu modülde iş akışı ve çakışma kontrolleri nedeniyle kayıtlar form üzerinden oluşturulmalıdır.");return;}
+      if(["reservations","contracts","payments","billboards"].includes(key)){toast(key==="billboards"?"Billboard konumu adresten otomatik bulunduğu için billboard kayıtlarını form üzerinden oluşturun.":"Bu modülde iş akışı ve çakışma kontrolleri nedeniyle kayıtlar form üzerinden oluşturulmalıdır.");return;}
       const inp=document.createElement("input");inp.type="file";inp.accept=".xlsx,.xls,.csv";inp.onchange=()=>handleImportFile(key,inp.files[0]);inp.click();
     }
     function handleImportFile(key,file){
