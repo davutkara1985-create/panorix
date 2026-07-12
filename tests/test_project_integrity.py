@@ -154,6 +154,7 @@ def test_browser_integrations_and_exports_are_wired() -> None:
         "function loadOpenStreetMap()",
         "leaflet.markercluster",
         "function geocodeBillboard(data,old)",
+        "function ekapSyncPanelHtml()",
         'id="loginFormWrap"',
     ):
         assert token in html
