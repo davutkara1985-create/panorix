@@ -1,0 +1,22 @@
+name: PANORIX EKAP Feed Sync
+
+on:
+  schedule:
+    - cron: "30 5 * * *"
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r jobs/requirements.txt
+      - run: python jobs/ekap_sync.py
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          EKAP_FEED_URL: ${{ secrets.EKAP_FEED_URL }}
+          EKAP_FEED_TOKEN: ${{ secrets.EKAP_FEED_TOKEN }}
+          ORGANIZATION_ID: ${{ secrets.ORGANIZATION_ID }}
