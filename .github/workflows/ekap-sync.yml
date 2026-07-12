@@ -1,22 +1,41 @@
-name: PANORIX EKAP Feed Sync
+name: PANORIX Otomatik EKAP Takibi
 
 on:
   schedule:
-    - cron: "30 5 * * *"
+    # GitHub Actions UTC kullanır. 05:30 UTC = Türkiye saatiyle yaklaşık 08:30.
+    - cron: "30 5 * * 1-6"
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: panorix-ekap-sync
+  cancel-in-progress: false
 
 jobs:
   sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Kodları al
+        uses: actions/checkout@v4
+
+      - name: Python kur
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -r jobs/requirements.txt
-      - run: python jobs/ekap_sync.py
+          cache: pip
+          cache-dependency-path: jobs/requirements.txt
+
+      - name: Gerekli paketleri kur
+        run: pip install -r jobs/requirements.txt
+
+      - name: EKAP ilanlarını tara ve Firestore'a kaydet
+        run: python jobs/ekap_sync.py
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
-          EKAP_FEED_URL: ${{ secrets.EKAP_FEED_URL }}
-          EKAP_FEED_TOKEN: ${{ secrets.EKAP_FEED_TOKEN }}
           ORGANIZATION_ID: ${{ secrets.ORGANIZATION_ID }}
+          EKAP_CONTACT_EMAIL: ${{ secrets.EKAP_CONTACT_EMAIL }}
+          EKAP_MAX_RECORDS: "100"
+          EKAP_REQUEST_DELAY_SECONDS: "2"
