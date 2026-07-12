@@ -2,8 +2,10 @@ name: PANORIX Otomatik EKAP Takibi
 
 on:
   schedule:
-    # GitHub Actions UTC kullanır. 05:30 UTC = Türkiye saatiyle yaklaşık 08:30.
+    # Pazartesi-Cumartesi, Türkiye saatiyle yaklaşık 08.30
     - cron: "30 5 * * 1-6"
+
+  # Actions ekranından elle çalıştırmayı sağlar
   workflow_dispatch:
 
 permissions:
@@ -17,25 +19,102 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    steps:
-      - name: Kodları al
-        uses: actions/checkout@v4
 
-      - name: Python kur
-        uses: actions/setup-python@v5
+    steps:
+      - name: Kodları GitHub'dan al
+        uses: actions/checkout@v5
+
+      - name: Python 3.12 kur
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: jobs/requirements.txt
 
-      - name: Gerekli paketleri kur
-        run: pip install -r jobs/requirements.txt
+      - name: Zorunlu dosyaları kontrol et
+        shell: bash
+        run: |
+          echo "PANORIX EKAP dosyalari kontrol ediliyor..."
+
+          test -f jobs/ekap_sync.py || {
+            echo "HATA: jobs/ekap_sync.py bulunamadi."
+            exit 1
+          }
+
+          test -f jobs/common.py || {
+            echo "HATA: jobs/common.py bulunamadi."
+            exit 1
+          }
+
+          test -f jobs/requirements.txt || {
+            echo "HATA: jobs/requirements.txt bulunamadi."
+            exit 1
+          }
+
+          echo "Zorunlu dosyalar bulundu."
+
+      - name: Python paketlerini kur
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r jobs/requirements.txt
+
+      - name: Python dosyalarını kontrol et
+        run: |
+          python -m py_compile jobs/common.py
+          python -m py_compile jobs/ekap_sync.py
+          echo "Python dosyalari hatasiz."
+
+      - name: Firebase ayarlarını kontrol et
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          ORGANIZATION_ID: ${{ secrets.ORGANIZATION_ID }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+
+          raw = os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON", "").strip()
+          organization_id = os.environ.get("ORGANIZATION_ID", "").strip()
+
+          if not raw:
+              raise SystemExit(
+                  "HATA: FIREBASE_SERVICE_ACCOUNT_JSON GitHub Secret bulunamadi."
+              )
+
+          try:
+              account = json.loads(raw)
+          except json.JSONDecodeError as exc:
+              raise SystemExit(
+                  f"HATA: FIREBASE_SERVICE_ACCOUNT_JSON gecerli JSON degil: {exc}"
+              )
+
+          required = [
+              "project_id",
+              "private_key",
+              "client_email",
+              "token_uri",
+          ]
+
+          missing = [key for key in required if not account.get(key)]
+          if missing:
+              raise SystemExit(
+                  "HATA: Service Account JSON eksik alanlar: "
+                  + ", ".join(missing)
+              )
+
+          if not organization_id:
+              raise SystemExit("HATA: ORGANIZATION_ID GitHub Secret bulunamadi.")
+
+          print("Firebase Service Account JSON okunabildi.")
+          print("Firebase proje kimligi:", account["project_id"])
+          print("Sirket kimligi:", organization_id)
+          PY
 
       - name: EKAP ilanlarını tara ve Firestore'a kaydet
-        run: python jobs/ekap_sync.py
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           ORGANIZATION_ID: ${{ secrets.ORGANIZATION_ID }}
           EKAP_CONTACT_EMAIL: ${{ secrets.EKAP_CONTACT_EMAIL }}
           EKAP_MAX_RECORDS: "100"
           EKAP_REQUEST_DELAY_SECONDS: "2"
+        run: python jobs/ekap_sync.py
