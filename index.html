@@ -1,0 +1,2044 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>PANORIX</title>
+  <script>
+  (function () {
+    if (window.streamlitComponentLib && window.streamlitComponentLib.Streamlit) return;
+    const events = new EventTarget();
+    const Streamlit = {
+      RENDER_EVENT: "streamlit:render",
+      events,
+      setComponentReady() { window.parent.postMessage({ isStreamlitMessage: true, type: "streamlit:componentReady", apiVersion: 1 }, "*"); },
+      setFrameHeight(height) { window.parent.postMessage({ isStreamlitMessage: true, type: "streamlit:setFrameHeight", height }, "*"); },
+      setComponentValue(value) { window.parent.postMessage({ isStreamlitMessage: true, type: "streamlit:setComponentValue", value, dataType: "json" }, "*"); }
+    };
+    window.addEventListener("message", (event) => {
+      const data = event.data || {};
+      if (!data || data.type !== Streamlit.RENDER_EVENT) return;
+      window.__latestStreamlitArgs = data.args || {};
+      events.dispatchEvent(new CustomEvent(Streamlit.RENDER_EVENT, { detail: data }));
+    });
+    window.streamlitComponentLib = { Streamlit };
+    try { Streamlit.setComponentReady(); Streamlit.setFrameHeight(window.innerHeight || 720); } catch(e) {}
+  })();
+  </script>
+
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --red:#0f4c81;
+      --red-dark:#06264a;
+      --red-soft:#eef6ff;
+      --ink:#1f2937;
+      --muted:#6b7280;
+      --line:#e5e7eb;
+      --soft:#f7f7f8;
+      --white:#fff;
+      --success:#15803d;
+      --warning:#b45309;
+      --danger:#b91c1c;
+      --info:#1d4ed8;
+      --shadow:0 14px 40px rgba(31,41,55,.12);
+      --shadow-soft:0 8px 22px rgba(31,41,55,.08);
+      --radius:18px;
+      font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+    }
+    *{box-sizing:border-box}
+    html,body{width:100%;height:100%;margin:0;padding:0;overflow:hidden;color:var(--ink);background:#f8fafc}
+    button,input,select,textarea{font:inherit}
+    button{cursor:pointer;border:0}
+    .hidden{display:none!important}.muted{color:var(--muted)}.danger-text{color:var(--danger)}.success-text{color:var(--success)}
+    .login-page{min-height:100vh;display:grid;place-items:center;padding:28px;background:linear-gradient(rgba(255,255,255,.42),rgba(255,255,255,.42)),url("background.png");background-size:cover;background-position:center}
+    .login-card{width:min(1080px,96vw);min-height:620px;display:grid;grid-template-columns:1.05fr .95fr;background:var(--white);border-radius:30px;overflow:hidden;box-shadow:var(--shadow);border:1px solid rgba(15,76,129,.15)}
+    .login-hero{padding:52px;color:#fff;background:linear-gradient(145deg,rgba(15,76,129,.96),rgba(6,38,74,.98)),repeating-linear-gradient(45deg,rgba(255,255,255,.08) 0 8px,transparent 8px 18px);display:flex;flex-direction:column;justify-content:space-between}
+    .logo-block{display:flex;align-items:center;gap:14px}.logo-mark{width:72px;height:72px;display:grid;place-items:center;border-radius:20px;background:#fff;box-shadow:0 12px 24px rgba(0,0,0,.14);font-weight:900;color:var(--red);letter-spacing:-.03em}.brand-title strong{display:block;font-size:24px;letter-spacing:.4px}.brand-title span{font-size:13px;opacity:.92}.login-hero h1{font-size:clamp(34px,4vw,54px);line-height:1.05;margin:62px 0 20px}.login-hero p{max-width:520px;line-height:1.65;opacity:.94}.hero-pills{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px}.hero-pill{border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:9px 12px;font-size:13px;background:rgba(255,255,255,.10)}
+    .login-form-wrap{padding:54px;display:flex;flex-direction:column;justify-content:center}.login-form-wrap h2{margin:0 0 8px;font-size:30px}.login-form-wrap p{margin:0 0 28px;color:var(--muted);line-height:1.5}
+    .app{height:100vh;width:100vw;display:grid;grid-template-columns:292px 1fr;background:#f6f7fb;overflow:hidden}.sidebar{background:linear-gradient(180deg,#fff 0,#fff9fa 100%);border-right:1px solid #d8e6f3;padding:18px 14px;display:flex;flex-direction:column;gap:16px;overflow:hidden}.side-brand{display:flex;align-items:center;gap:13px;padding:10px 8px 20px;border-bottom:1px solid var(--line)}.side-brand .logo-mark{width:54px;height:54px;border-radius:16px;border:1px solid #b7d7f0;box-shadow:0 8px 18px rgba(15,76,129,.10);font-size:16px}.side-brand strong{display:block;font-size:18px}.side-brand span{font-size:12px;color:var(--muted)}.nav{display:flex;flex-direction:column;gap:6px;overflow:auto;padding:2px 0 8px}.nav button{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;background:transparent;color:#374151;border-radius:14px;padding:11px 12px;font-weight:750;text-align:left;transition:.15s}.nav button:hover{background:#eef6ff;color:var(--red);transform:translateX(2px)}.nav button.active{background:linear-gradient(135deg,var(--red),var(--red-dark));color:#fff;box-shadow:0 14px 28px rgba(15,76,129,.24)}.nav button span:first-child{display:flex;align-items:center;gap:8px}.side-footer{margin-top:auto;background:#fff;border:1px solid var(--line);border-radius:18px;padding:13px;box-shadow:var(--shadow-soft)}.side-footer strong{display:block}.side-footer span{font-size:12px;color:var(--muted)}
+    .main{min-width:0;display:flex;flex-direction:column;overflow:hidden}.topbar{height:82px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:18px;padding:0 26px;flex:0 0 auto}.topbar h1{margin:0;font-size:24px}.topbar .sub{font-size:13px;color:var(--muted);margin-top:4px}.view{padding:22px 26px 28px;overflow:auto;min-height:0}.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px}.page-head h2{margin:0;font-size:27px}.page-head p{margin:7px 0 0;color:var(--muted)}.motto-head{justify-content:center;text-align:center}.motto-title p{font-weight:900;color:#111827;font-size:17px;position:relative;display:inline-block}.motto-title p:after{content:"";display:block;width:54px;height:3px;background:linear-gradient(90deg,var(--red),#7db7e8);border-radius:99px;margin:9px auto 0}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:14px;padding:11px 15px;background:var(--red);color:#fff;font-weight:850;box-shadow:0 9px 20px rgba(15,76,129,.22);transition:.15s}.btn:hover{transform:translateY(-1px);background:var(--red-dark);box-shadow:0 12px 25px rgba(15,76,129,.26)}.btn.secondary{background:#fff;color:var(--red);border:1px solid rgba(15,76,129,.30);box-shadow:none}.btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line);box-shadow:none}.btn.danger{background:var(--danger)}.btn.small{padding:8px 10px;border-radius:11px;font-size:12px;box-shadow:none}.btn.icon{width:42px;height:42px;padding:0;border-radius:14px;font-size:20px}.btn-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.user-chip{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 11px 6px 7px}.avatar{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--red);color:#fff;font-weight:900}
+    .cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px;margin-bottom:16px}.stat-card{border:1px solid rgba(15,76,129,.14);background:linear-gradient(135deg,#fff 0,#fff 55%,#eef6ff 100%);border-radius:18px;padding:18px;text-align:left;box-shadow:var(--shadow-soft);min-height:112px}.stat-card .label{font-weight:850;color:#6b7280;font-size:13px}.stat-card .num{font-size:34px;font-weight:950;margin:10px 0 5px;line-height:1}.stat-card .hint{color:var(--muted);font-size:13px}.stat-card.red{border-top:4px solid var(--red)}
+    .panel{background:#fff;border:1px solid var(--line);border-radius:20px;padding:18px;box-shadow:var(--shadow-soft)}.panel h3{margin:0 0 12px;font-size:18px}.dashboard-grid{display:grid;grid-template-columns:2fr 1fr;gap:18px}.two-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.three-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.filters{display:grid;grid-template-columns:1.8fr 1fr 1fr 1fr auto;gap:10px;align-items:end;margin-bottom:12px}.field{display:flex;flex-direction:column;gap:7px;margin-bottom:14px}.field label{font-weight:800;font-size:13px;color:#374151}.field input,.field select,.field textarea{width:100%;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:14px;padding:12px 13px;outline:none;transition:.15s}.field textarea{min-height:96px;resize:vertical}.field input:focus,.field select:focus,.field textarea:focus{border-color:rgba(15,76,129,.75);box-shadow:0 0 0 4px rgba(15,76,129,.10)}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 14px}.form-grid .span-2{grid-column:span 2}.section-card{border-top:4px solid var(--red);background:#fff;border-radius:22px;border:1px solid var(--line);padding:20px;box-shadow:var(--shadow-soft);margin-bottom:16px}.section-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}.section-title h3{margin:0}.step-pill{background:#eef6ff;color:var(--red);border-radius:999px;width:34px;height:34px;display:grid;place-items:center;font-weight:900}
+    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:16px}table{width:100%;border-collapse:collapse;background:#fff}th{font-size:12px;text-align:left;color:#374151;background:#eff7ff;padding:13px;border-bottom:1px solid var(--line);white-space:nowrap}td{font-size:13px;padding:13px;border-bottom:1px solid var(--line);vertical-align:top}tr:hover td{background:#f8fbff}.badge{display:inline-flex;align-items:center;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:850;background:#eef2ff;color:#1d4ed8}.badge.success{background:#dcfce7;color:#166534}.badge.warning{background:#ffedd5;color:#9a3412}.badge.danger{background:#fee2e2;color:#991b1b}.badge.gray{background:#f3f4f6;color:#374151}.badge.red{background:#eef6ff;color:var(--red)}.empty{border:1px dashed #f2bdc6;background:#fff7f8;border-radius:18px;padding:30px;text-align:center;color:var(--muted)}
+    .calendar-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}.weekdays,.calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}.weekday{text-align:center;font-weight:900;color:#6b7280;font-size:12px}.day{min-height:112px;border:1px solid var(--line);border-radius:14px;background:#fff;padding:8px;overflow:hidden}.day.other{background:#f3f4f6;color:#9ca3af}.day.today{border-color:var(--red);box-shadow:0 0 0 2px rgba(15,76,129,.08)}.day-num{display:flex;justify-content:space-between;font-weight:900;font-size:13px;margin-bottom:8px}.cal-chip{display:block;width:100%;text-align:left;background:#475569;color:#fff;border-radius:9px;padding:5px 7px;margin:4px 0;font-size:11px;font-weight:850;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mini-item{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;border:1px solid var(--line);border-radius:14px;background:#fafafa;padding:12px;margin-bottom:10px}.mini-item strong{display:block}.mini-item span{display:block;color:var(--muted);font-size:12px;margin-top:4px;line-height:1.45}.bar{height:12px;border-radius:999px;background:#f3f4f6;overflow:hidden}.bar span{display:block;height:100%;background:linear-gradient(90deg,var(--red),#f97386);border-radius:999px}.toast{position:fixed;right:24px;bottom:24px;background:#111827;color:#fff;border-radius:16px;padding:14px 16px;box-shadow:var(--shadow);z-index:50;max-width:360px}.modal-backdrop{position:fixed;inset:0;background:rgba(17,24,39,.45);display:grid;place-items:center;z-index:60;padding:24px}.modal{width:min(920px,96vw);max-height:86vh;overflow:hidden;background:#fff;border-radius:24px;box-shadow:var(--shadow);display:flex;flex-direction:column}.modal header{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--line)}.modal header h3{margin:0}.modal .body{padding:20px;overflow:auto}.modal footer{padding:14px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px}.detail-grid{display:grid;grid-template-columns:220px 1fr;gap:0;border:1px solid var(--line);border-radius:16px;overflow:hidden}.detail-grid div{padding:11px 13px;border-bottom:1px solid var(--line)}.detail-grid div:nth-child(odd){background:#fafafa;font-weight:900;color:#6b7280}.detail-grid div:last-child,.detail-grid div:nth-last-child(2){border-bottom:0}
+    @media (max-width:1100px){.app{grid-template-columns:92px 1fr}.side-brand div:not(.logo-mark),.side-footer,.nav button span:first-child span.label{display:none}.nav button{justify-content:center}.cards{grid-template-columns:repeat(2,1fr)}.dashboard-grid,.two-grid{grid-template-columns:1fr}.filters{grid-template-columns:1fr}.login-card{grid-template-columns:1fr}.login-hero{display:none}.form-grid{grid-template-columns:1fr}.form-grid .span-2{grid-column:auto}}
+  
+
+    /* Kullanıcı talebine göre görsel düzenleme: sabit gömülü menü, minimal formlar, degrade arka plan */
+    html,body{background:linear-gradient(135deg,#fff7f8 0%,#f7f8fb 42%,#eef4ff 100%) !important;}
+    .app{grid-template-columns:292px 1fr;background:linear-gradient(135deg,#fff7f8 0%,#f7f8fb 48%,#eef4ff 100%);}
+    .sidebar{background:linear-gradient(180deg,rgba(255,255,255,.94) 0%,rgba(255,247,249,.92) 100%);padding:12px 10px;gap:7px;overflow:hidden;box-shadow:18px 0 44px rgba(148,34,54,.07);}
+    .side-brand{padding:6px 6px 8px;gap:9px}.side-brand .logo-mark{width:40px;height:40px;border-radius:12px;font-size:12px}.side-brand strong{font-size:13px}.side-brand span{font-size:9.5px}
+    .nav{flex:1;min-height:0;gap:2px;overflow:hidden!important;padding:0!important;scrollbar-width:none!important}.nav button{border-radius:9px;padding:5px 7px;font-size:11px;font-weight:500;letter-spacing:0;line-height:1.1;min-height:24px;white-space:nowrap;overflow:hidden}
+    .topbar{height:66px;background:rgba(255,255,255,.88);backdrop-filter:blur(10px);padding:0 18px}.topbar h1{font-size:19px;font-weight:700}.topbar .sub{font-size:11.5px}.user-chip{padding:4px 8px 4px 5px}.avatar{width:30px;height:30px;font-size:12px}
+    .view{padding:14px 18px 84px;background:linear-gradient(135deg,rgba(255,255,255,.32),rgba(239,246,255,.36));}
+    .page-head{margin-bottom:10px}.motto-head{justify-content:flex-start;text-align:left}.motto-title p{font-size:12.5px;font-weight:500;color:#64748b;margin:0}.motto-title p:after{display:none}.page-head h2{font-size:20px}.page-head p{font-size:12px}
+    .btn{border-radius:11px;padding:8px 11px;font-size:12px;font-weight:600;box-shadow:0 7px 14px rgba(15,76,129,.13)}.btn.small{padding:6px 8px;border-radius:9px;font-size:11px}.btn.ghost,.btn.secondary{background:rgba(255,255,255,.92)}.btn.icon{display:none!important}.btn-row{gap:7px}
+    .panel,.section-card{border-radius:16px;box-shadow:0 8px 24px rgba(31,41,55,.06);background:rgba(255,255,255,.92)}.panel{padding:14px}.panel h3{font-size:15px;font-weight:650}.section-card{padding:16px;margin-bottom:12px;border-top:0}.section-title h3{font-size:15px;font-weight:650}.section-title p{font-size:11.5px}.step-pill{width:26px;height:26px;font-size:12px}
+    .cards{gap:10px;margin-bottom:12px}.stat-card{border-radius:16px;padding:13px;min-height:90px}.stat-card .label{font-size:11.5px;font-weight:600}.stat-card .num{font-size:24px;margin:7px 0 3px}.stat-card .hint{font-size:11px}
+    .filters{grid-template-columns:minmax(220px,2fr) minmax(150px,1fr) minmax(130px,0.8fr) minmax(130px,0.8fr) auto;gap:8px;margin-bottom:10px;align-items:end}.filters .field{margin-bottom:0}.field{gap:5px;margin-bottom:10px;position:relative}.field label{font-size:11.5px;font-weight:600;color:#475569}.field input,.field select,.field textarea{border-radius:12px;padding:9px 11px;font-size:12.5px;background:linear-gradient(180deg,#fff,#fbfbfc);border:1px solid #e2e8f0;box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 1px 2px rgba(15,23,42,.03)}.field textarea{min-height:78px}.field:focus-within label{color:var(--red)}.field input:hover,.field select:hover,.field textarea:hover{border-color:#f1a8b5}.field input:focus,.field select:focus,.field textarea:focus{border-color:rgba(15,76,129,.72);box-shadow:0 0 0 3px rgba(15,76,129,.09),0 8px 20px rgba(15,23,42,.05);transform:translateY(-1px)}
+    .table-wrap{border-radius:14px}th{font-size:11px;padding:10px;font-weight:650}td{font-size:12px;padding:10px}.badge{font-size:11px;padding:5px 8px;font-weight:600}.empty{padding:22px;font-size:12.5px;background:rgba(255,247,248,.75)}
+    .page-actions{position:sticky;bottom:0;z-index:12;margin:14px -18px -84px;padding:10px 18px;background:rgba(255,255,255,.84);border-top:1px solid rgba(226,232,240,.9);backdrop-filter:blur(12px);display:flex;justify-content:flex-end;gap:7px}.page-actions .btn{box-shadow:none;font-weight:500}.import-input{display:none}
+    .calendar-head h3{font-size:15px}.weekday{font-size:10.5px}.day{min-height:88px;border-radius:12px}.cal-chip{font-size:10px;font-weight:600}.mini-item{padding:9px;border-radius:12px}.mini-item strong{font-size:12.5px;font-weight:650}.mini-item span{font-size:11px}
+    @media (max-width:1100px){.app{grid-template-columns:292px 1fr}.side-brand div:not(.logo-mark),.side-footer,.nav button span:first-child span.label{display:block}.nav button{justify-content:flex-start}.cards{grid-template-columns:repeat(2,1fr)}}
+
+
+
+    /* --- Requested targeted updates: layout, menu, sticky action bar and app background --- */
+    .app{background:linear-gradient(rgba(248,250,252,.70),rgba(248,250,252,.70)),url("background.png") center/cover no-repeat!important;}
+    .main{background:transparent!important;}
+    .view{padding-bottom:96px!important;}
+    .topbar .btn.small,.topbar .user-chip{height:38px;min-height:38px;border-radius:12px;display:inline-flex;align-items:center;}
+    .topbar .user-chip{padding:0 12px 0 8px;min-width:174px;max-width:220px;overflow:hidden;}
+    .topbar .user-chip .avatar{width:26px;height:26px;min-width:26px;font-size:11px;}
+    .topbar .user-chip b{display:inline-block;max-width:145px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;line-height:1.05;}
+    .topbar .user-chip small{font-size:10px;line-height:1.05;}
+    .nav{overflow:hidden!important;scrollbar-width:none!important;}
+    .nav button:focus,.nav button:focus-visible,.nav button:active{outline:none!important;background:#eef6ff!important;color:var(--red)!important;}
+    .nav button.active,.nav button.active:hover,.nav button.active:focus,.nav button.active:focus-visible,.nav button.active:active{background:linear-gradient(135deg,var(--red),var(--red-dark))!important;color:#fff!important;box-shadow:0 14px 28px rgba(15,76,129,.24)!important;}
+    .motto-title p{font-family:Inter,"Segoe UI",Roboto,Arial,sans-serif!important;font-size:13px!important;line-height:1.5!important;color:var(--red)!important;font-weight:700!important;}
+    .motto-head{display:none!important;}
+    .page-actions{position:sticky;bottom:0;z-index:20;margin-top:18px;padding:12px 14px;background:rgba(255,255,255,.94);backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:18px;box-shadow:0 -8px 22px rgba(31,41,55,.07);}
+    .form-grid .span-3{grid-column:1/-1;}
+    .checklist-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:8px;}
+    .equipment-line{display:grid;grid-template-columns:1fr 92px;gap:8px;align-items:center;border:1px solid var(--line);border-radius:12px;background:#fff;padding:9px 10px;}
+    .equipment-line label{display:flex;align-items:center;gap:8px;margin:0!important;font-weight:750;color:#374151!important;}
+    .equipment-line input[type="number"]{height:34px;padding:7px 9px;}
+    .service-table{width:100%;border-collapse:separate;border-spacing:0 8px;}
+    .service-table th{font-size:12px;color:#6b7280;text-align:left;padding:0 6px;}
+    .service-table td{padding:0 6px;vertical-align:middle;}
+    .service-table input{height:38px;min-height:38px;}
+    .command-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+    .command-alert{border:1px solid var(--line);border-left:5px solid var(--red);border-radius:16px;background:#fff;padding:13px 14px;box-shadow:var(--shadow-soft);}
+    .command-alert strong{display:block;font-size:14px;margin-bottom:4px;}.command-alert span{display:block;color:var(--muted);font-size:12px;line-height:1.45;}
+    .metric-table td,.metric-table th{white-space:nowrap;}
+    .perf-visual-grid{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:16px;margin:16px 0 18px;}
+    .perf-chart-card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:16px;box-shadow:var(--shadow-soft);overflow:hidden;}
+    .perf-chart-card h3{margin:0 0 12px;font-size:16px;}
+    .perf-bar-row{margin:10px 0 12px;}
+    .perf-bar-head{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;font-weight:850;color:#374151;margin-bottom:6px;}
+    .perf-bar-track{height:12px;border-radius:999px;background:#eef2f7;overflow:hidden;}
+    .perf-bar-track span{display:block;height:100%;width:var(--w);border-radius:999px;background:linear-gradient(90deg,var(--red),#7db7e8);animation:perfGrow .9s ease-out both;}
+    .perf-kpi-ring{width:116px;height:116px;border-radius:50%;display:grid;place-items:center;margin:8px auto 14px;background:conic-gradient(var(--red) calc(var(--p)*1%),#eef2f7 0);animation:perfPulse 1.2s ease-out both;}
+    .perf-kpi-ring span{width:82px;height:82px;border-radius:50%;display:grid;place-items:center;background:#fff;font-size:22px;font-weight:950;color:#111827;}
+    @keyframes perfGrow{from{width:0}to{width:var(--w)}}
+    @keyframes perfPulse{from{transform:scale(.94);opacity:.72}to{transform:scale(1);opacity:1}}
+    @media (max-width:1100px){.checklist-grid,.command-list{grid-template-columns:1fr}.topbar .user-chip{min-width:150px}}
+
+
+    /* --- Targeted update v2: full screen, clearer background, compact header, fixed bottom actions, modern checkboxes --- */
+    html,body{background:transparent!important;margin:0!important;padding:0!important;width:100vw!important;height:100vh!important;height:100dvh!important;overflow:hidden!important;}
+    .login-page,.app{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;height:100dvh!important;min-height:100vh!important;min-height:100dvh!important;margin:0!important;}
+    .login-page{padding:0!important;background:linear-gradient(rgba(255,255,255,.32),rgba(255,255,255,.32)),url("background.png") center/cover no-repeat!important;}
+    .app{background:linear-gradient(rgba(248,250,252,.42),rgba(248,250,252,.42)),url("background.png") center/cover no-repeat!important;}
+    .main,.view{background:transparent!important;}
+    .view{display:flex!important;flex-direction:column!important;padding-bottom:18px!important;}
+    .side-footer{display:none!important;}
+    .topbar .btn-row{gap:7px!important;}
+    .topbar .user-chip{height:34px!important;min-height:34px!important;min-width:0!important;width:auto!important;max-width:168px!important;padding:3px 8px 3px 5px!important;gap:6px!important;border-radius:12px!important;}
+    .topbar .user-chip .avatar{width:24px!important;height:24px!important;min-width:24px!important;font-size:10px!important;}
+    .topbar .user-chip div{line-height:1!important;min-width:0!important;}
+    .topbar .user-chip b{max-width:110px!important;font-size:11.5px!important;line-height:1!important;display:block!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;}
+    .topbar .user-chip small{display:block!important;font-size:9.5px!important;line-height:1!important;margin-top:1px!important;}
+    #recordForm{min-height:100%!important;display:flex!important;flex-direction:column!important;}
+    .view>.page-actions,#recordForm>.page-actions{margin-top:auto!important;position:sticky!important;bottom:0!important;z-index:40!important;align-self:stretch!important;display:flex!important;justify-content:flex-end!important;gap:7px!important;padding:12px 14px!important;background:rgba(255,255,255,.96)!important;border:1px solid var(--line)!important;border-radius:16px!important;box-shadow:0 -10px 24px rgba(31,41,55,.09)!important;backdrop-filter:blur(12px)!important;}
+    .dashboard-alert-cards{grid-template-columns:repeat(5,minmax(0,1fr))!important;}
+    .stat-card .alert-title{display:block;font-size:14px;font-weight:900;line-height:1.35;color:#111827;margin-top:8px;}
+    .stat-card .alert-hint{display:block;color:var(--muted);font-size:12px;line-height:1.35;margin-top:6px;}
+    /* --- Targeted update v3: checkbox cards aligned with the shared sample image --- */
+    input[type="checkbox"]{appearance:none;-webkit-appearance:none;width:13px!important;height:13px!important;min-width:13px!important;border:1.4px solid #cbd5e1;border-radius:3px;background:#fff;display:inline-grid;place-content:center;margin:0!important;cursor:pointer;transition:.15s;}
+    input[type="checkbox"]::before{content:"";width:7px;height:7px;transform:scale(0);transition:.12s;clip-path:polygon(14% 44%,0 60%,40% 100%,100% 20%,84% 6%,38% 70%);background:#fff;}
+    input[type="checkbox"]:checked{background:var(--red);border-color:var(--red);box-shadow:0 0 0 3px rgba(15,76,129,.10);}
+    input[type="checkbox"]:checked::before{transform:scale(1);}
+    input[type="checkbox"]:focus-visible{outline:none;box-shadow:0 0 0 4px rgba(15,76,129,.14);}
+    input[type="checkbox"]:disabled{opacity:.55;cursor:not-allowed;}
+    .checklist-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:8px!important;}
+    .equipment-line{grid-template-columns:1fr 66px!important;gap:7px!important;align-items:center!important;border:1px solid #e5e7eb!important;border-radius:12px!important;padding:7px 8px 7px 10px!important;background:rgba(255,255,255,.96)!important;min-height:38px!important;box-shadow:0 1px 0 rgba(15,23,42,.03)!important;transition:border-color .15s,box-shadow .15s,background .15s;}
+    .equipment-line:hover{border-color:#d7dce3!important;background:#fff!important;box-shadow:0 6px 16px rgba(31,41,55,.06)!important;}
+    .equipment-line:has(input[type="checkbox"]:checked){border-color:rgba(15,76,129,.34)!important;background:linear-gradient(180deg,#fff,#f5faff)!important;}
+    .equipment-line label,.checkbox-card{display:flex!important;align-items:center!important;gap:9px!important;margin:0!important;min-width:0!important;font-size:11.5px!important;font-weight:800!important;line-height:1.2!important;color:#111827!important;cursor:pointer!important;}
+    .equipment-line label span,.checkbox-card span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .equipment-line input[type="number"]{height:26px!important;min-height:26px!important;padding:3px 7px!important;border-radius:8px!important;font-size:11px!important;text-align:center!important;}
+    .equipment-line input[type="text"].eq-other-text{height:26px!important;min-height:26px!important;padding:3px 7px!important;border-radius:8px!important;font-size:11px!important;}
+    .equipment-line input[type="number"]:disabled{background:#f9fafb!important;color:#cbd5e1!important;border-color:#eef2f7!important;}
+    .field textarea{min-height:82px;}
+    .budget-columns{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;}
+    .budget-block{border:1px solid var(--line);border-radius:16px;background:#fff;padding:12px;box-shadow:var(--shadow-soft);}
+    .budget-block h4{margin:0 0 10px;font-size:14px;color:#111827;}
+    .budget-table input{height:36px;min-height:36px;}
+    .org-other-input.hidden{display:none!important;}
+    @media (max-width:1100px){.checklist-grid,.dashboard-alert-cards,.budget-columns{grid-template-columns:1fr!important}.topbar .user-chip{max-width:145px!important}.topbar .user-chip b{max-width:92px!important}}
+
+
+
+    /* --- Targeted update v4: true full-page module layout, fixed footer actions, compact user chip --- */
+    html,body{
+      width:100vw!important;
+      height:100vh!important;
+      height:100dvh!important;
+      margin:0!important;
+      padding:0!important;
+      overflow:hidden!important;
+      background:transparent!important;
+    }
+    #appPage.app{
+      position:fixed!important;
+      inset:0!important;
+      width:100vw!important;
+      height:100vh!important;
+      height:100dvh!important;
+      min-height:100vh!important;
+      min-height:100dvh!important;
+      grid-template-rows:1fr!important;
+      overflow:hidden!important;
+    }
+    .main{
+      height:100vh!important;
+      height:100dvh!important;
+      min-height:0!important;
+      overflow:hidden!important;
+      display:flex!important;
+      flex-direction:column!important;
+      background:transparent!important;
+    }
+    .topbar{
+      flex:0 0 66px!important;
+      height:66px!important;
+      min-height:66px!important;
+    }
+    #view.view{
+      flex:1 1 auto!important;
+      height:calc(100vh - 66px)!important;
+      height:calc(100dvh - 66px)!important;
+      min-height:0!important;
+      overflow:auto!important;
+      position:relative!important;
+      display:flex!important;
+      flex-direction:column!important;
+      padding:14px 18px 92px!important;
+      background:linear-gradient(135deg,rgba(255,255,255,.20),rgba(239,246,255,.22))!important;
+    }
+    #view.view > .panel,
+    #view.view > .section-card,
+    #view.view > .two-grid,
+    #view.view > .cards,
+    #view.view > .dashboard-grid,
+    #view.view > .command-list{
+      flex:0 0 auto!important;
+    }
+    #recordForm,
+    #profileForm{
+      flex:1 1 auto!important;
+      min-height:100%!important;
+      display:flex!important;
+      flex-direction:column!important;
+    }
+    #recordForm > .section-card,
+    #profileForm > .section-card,
+    #recordForm > .panel,
+    #profileForm > .panel{
+      flex:0 0 auto!important;
+    }
+    .page-actions{
+      position:fixed!important;
+      left:276px!important;
+      right:18px!important;
+      bottom:14px!important;
+      z-index:999!important;
+      margin:0!important;
+      padding:10px 12px!important;
+      min-height:52px!important;
+      background:rgba(255,255,255,.97)!important;
+      border:1px solid rgba(226,232,240,.95)!important;
+      border-radius:16px!important;
+      box-shadow:0 -10px 26px rgba(15,23,42,.10)!important;
+      backdrop-filter:blur(14px)!important;
+      display:flex!important;
+      justify-content:flex-end!important;
+      align-items:center!important;
+      gap:7px!important;
+    }
+    .page-actions .btn{
+      white-space:nowrap!important;
+      box-shadow:none!important;
+    }
+    .topbar > .btn-row{
+      flex:0 0 auto!important;
+      display:flex!important;
+      align-items:center!important;
+      justify-content:flex-end!important;
+      flex-wrap:nowrap!important;
+      gap:6px!important;
+      max-width:420px!important;
+    }
+    .topbar .btn.secondary.small,
+    .topbar .btn.ghost.small{
+      height:34px!important;
+      min-height:34px!important;
+      padding:6px 9px!important;
+      border-radius:11px!important;
+      font-size:10.5px!important;
+    }
+    .topbar .user-chip{
+      height:34px!important;
+      min-height:34px!important;
+      width:104px!important;
+      min-width:104px!important;
+      max-width:104px!important;
+      padding:3px 6px 3px 4px!important;
+      gap:5px!important;
+      border-radius:11px!important;
+      overflow:hidden!important;
+      flex:0 0 104px!important;
+    }
+    .topbar .user-chip .avatar{
+      width:23px!important;
+      height:23px!important;
+      min-width:23px!important;
+      font-size:9.5px!important;
+      line-height:1!important;
+    }
+    .topbar .user-chip div{
+      min-width:0!important;
+      width:70px!important;
+      max-width:70px!important;
+      line-height:0.92!important;
+      display:block!important;
+    }
+    #topUserName{
+      display:block!important;
+      max-width:70px!important;
+      overflow:hidden!important;
+      text-overflow:ellipsis!important;
+      white-space:nowrap!important;
+      font-size:10.5px!important;
+      font-weight:800!important;
+      line-height:1!important;
+      margin:0!important;
+      padding:0!important;
+    }
+    #topUserRole{
+      display:block!important;
+      max-width:70px!important;
+      overflow:hidden!important;
+      text-overflow:ellipsis!important;
+      white-space:nowrap!important;
+      font-size:8.5px!important;
+      line-height:1!important;
+      margin:1px 0 0!important;
+      padding:0!important;
+    }
+    .topbar .user-chip br{
+      display:none!important;
+    }
+    @media (max-width:1100px){
+      .page-actions{left:110px!important;right:12px!important;bottom:12px!important;}
+      #view.view{padding-bottom:88px!important;}
+      .topbar > .btn-row{max-width:360px!important;}
+      .topbar .user-chip{width:92px!important;min-width:92px!important;max-width:92px!important;flex-basis:92px!important;}
+      .topbar .user-chip div,#topUserName,#topUserRole{max-width:58px!important;width:58px!important;}
+    }
+
+
+    /* --- Targeted update v5: action buttons aligned with page information title and placed above search/record panel --- */
+    #view.view{
+      padding:14px 18px 28px!important;
+    }
+    .page-head{
+      margin-bottom:10px!important;
+    }
+    .page-actions{
+      position:static!important;
+      left:auto!important;
+      right:auto!important;
+      bottom:auto!important;
+      z-index:auto!important;
+      width:auto!important;
+      max-width:100%!important;
+      min-height:0!important;
+      margin:0 0 12px 0!important;
+      padding:0!important;
+      background:transparent!important;
+      border:0!important;
+      border-radius:0!important;
+      box-shadow:none!important;
+      backdrop-filter:none!important;
+      align-self:flex-start!important;
+      display:flex!important;
+      justify-content:flex-start!important;
+      align-items:center!important;
+      flex-wrap:wrap!important;
+      gap:8px!important;
+    }
+    .page-actions .btn{
+      height:34px!important;
+      min-height:34px!important;
+      padding:7px 11px!important;
+      border-radius:11px!important;
+      font-size:11px!important;
+      box-shadow:none!important;
+      white-space:nowrap!important;
+    }
+    #recordForm>.page-actions,
+    #profileForm>.page-actions{
+      margin-top:12px!important;
+      margin-bottom:0!important;
+      align-self:flex-start!important;
+    }
+    @media (max-width:1100px){
+      .page-actions{left:auto!important;right:auto!important;bottom:auto!important;}
+    }
+
+
+    /* --- Targeted update v6: toolbar embedded into panel; no floating/auto-spaced action bar --- */
+    #view.view{
+      display:block!important;
+      flex-direction:initial!important;
+      padding:14px 18px 28px!important;
+      overflow:auto!important;
+      min-height:0!important;
+    }
+    #recordForm,
+    #profileForm{
+      display:block!important;
+      min-height:0!important;
+    }
+    .module-list-panel{
+      margin-top:0!important;
+    }
+    #view.view > .page-actions,
+    #recordForm > .page-actions,
+    #profileForm > .page-actions,
+    .panel > .page-actions,
+    .section-card > .page-actions,
+    .page-actions{
+      position:static!important;
+      left:auto!important;
+      right:auto!important;
+      top:auto!important;
+      bottom:auto!important;
+      z-index:auto!important;
+      width:auto!important;
+      max-width:100%!important;
+      min-height:0!important;
+      height:auto!important;
+      margin:0 0 12px 0!important;
+      padding:0!important;
+      background:transparent!important;
+      border:0!important;
+      border-radius:0!important;
+      box-shadow:none!important;
+      backdrop-filter:none!important;
+      -webkit-backdrop-filter:none!important;
+      align-self:auto!important;
+      display:flex!important;
+      justify-content:flex-start!important;
+      align-items:center!important;
+      flex-wrap:wrap!important;
+      gap:8px!important;
+    }
+    #recordForm > .page-actions,
+    #profileForm > .page-actions,
+    #view.view > .page-actions{
+      margin-top:12px!important;
+      margin-bottom:0!important;
+    }
+    .panel > .page-actions{
+      margin-top:0!important;
+      margin-bottom:12px!important;
+    }
+    .page-actions .btn{
+      height:auto!important;
+      min-height:0!important;
+      white-space:nowrap!important;
+    }
+    .page-actions .btn:not(.small){
+      padding:11px 15px!important;
+      border-radius:14px!important;
+      font-size:inherit!important;
+    }
+    .page-actions .btn.small{
+      padding:8px 10px!important;
+      border-radius:11px!important;
+      font-size:12px!important;
+      box-shadow:none!important;
+    }
+
+
+
+    .nav-section-title{margin:5px 7px 2px;color:#0f4c81;font-size:10.2px;font-weight:600;letter-spacing:.035em;text-transform:uppercase;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .nav-section-title:first-child{margin-top:0;}
+    .nav button.nav-sub{padding-left:11px;}
+    .nav button.nav-main{font-weight:600;min-height:25px;}
+    .nav::-webkit-scrollbar{display:none;}
+    .nav button span:first-child{min-width:0;gap:6px;white-space:nowrap;overflow:hidden;}
+    .nav button span.label{display:inline-block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+    /* --- Targeted update v8: premium blue/navy theme, smaller login card, SD logo --- */
+    :root{--red:#0f4c81!important;--red-dark:#06264a!important;--red-soft:#eef6ff!important;--info:#0f4c81!important;}
+    .login-card{width:min(850px,92vw)!important;min-height:500px!important;grid-template-columns:.9fr 1fr!important;border-radius:24px!important;border-color:rgba(15,76,129,.16)!important;}
+    .login-form-wrap{padding:34px 38px!important;}.login-form-wrap h2{font-size:25px!important;}
+    .login-hero{padding:36px!important;background:linear-gradient(145deg,rgba(15,76,129,.96),rgba(6,38,74,.98)),repeating-linear-gradient(45deg,rgba(255,255,255,.08) 0 8px,transparent 8px 18px)!important;}
+    .login-hero h1{font-size:clamp(28px,3vw,42px)!important;margin:42px 0 16px!important;}.login-hero p{font-size:13px!important;line-height:1.55!important;}.hero-pill{font-size:11.5px!important;padding:7px 10px!important;}
+    .logo-mark.logo-image{overflow:hidden!important;padding:0!important;background:#fff!important;border-color:rgba(15,76,129,.18)!important;}.logo-mark.logo-image img{width:100%!important;height:100%!important;object-fit:cover!important;display:block!important;}
+    .side-brand .logo-mark.logo-image{width:38px!important;height:38px!important;}.login-hero .logo-mark.logo-image{width:76px!important;height:76px!important;border-radius:20px!important;}
+    .nav button.active{background:linear-gradient(135deg,#0f4c81,#06264a)!important;box-shadow:0 14px 28px rgba(15,76,129,.24)!important;}.btn{background:#0f4c81!important;box-shadow:0 9px 20px rgba(15,76,129,.22)!important;}.btn:hover{background:#06264a!important;box-shadow:0 12px 25px rgba(15,76,129,.26)!important;}.btn.secondary{background:#fff!important;color:#0f4c81!important;border-color:rgba(15,76,129,.30)!important;box-shadow:none!important;}.btn.ghost{background:#fff!important;color:var(--ink)!important;border-color:var(--line)!important;box-shadow:none!important;}.avatar{background:#0f4c81!important;}
+    input[type="checkbox"]:checked{background:#0f4c81!important;border-color:#0f4c81!important;box-shadow:0 0 0 3px rgba(15,76,129,.10)!important;}input[type="checkbox"]:focus-visible{box-shadow:0 0 0 4px rgba(15,76,129,.14)!important;}.field input:focus,.field select:focus,.field textarea:focus{border-color:rgba(15,76,129,.75)!important;box-shadow:0 0 0 4px rgba(15,76,129,.10)!important;}
+    @media (max-width:900px){.login-card{grid-template-columns:1fr!important;width:min(520px,94vw)!important}.login-hero{display:none!important}.login-form-wrap{padding:30px!important}}
+
+    /* --- Safe update v9: colored sidebar headings + mobile compatibility --- */
+
+.nav-section-title{
+  display:flex!important;
+  align-items:center!important;
+  gap:6px!important;
+  color:var(--nav-title-color,#0f4c81)!important;
+  border-left:3px solid var(--nav-title-color,#0f4c81)!important;
+  background:rgba(255,255,255,.70)!important;
+  border-radius:9px!important;
+  padding:5px 7px!important;
+  margin:6px 6px 3px!important;
+  font-size:9.8px!important;
+  font-weight:800!important;
+  letter-spacing:.045em!important;
+  line-height:1.15!important;
+  text-transform:uppercase!important;
+  white-space:normal!important;
+  overflow:hidden!important;
+  text-overflow:clip!important;
+}
+
+.nav-section-title::before{
+  content:"";
+  width:6px;
+  height:6px;
+  min-width:6px;
+  border-radius:999px;
+  background:var(--nav-title-color,#0f4c81);
+  box-shadow:0 0 8px var(--nav-title-color,#0f4c81);
+}
+
+/* Mobil uyumluluk sadece küçük ekranlarda devreye girer */
+@media (max-width:768px){
+
+  html,
+  body{
+    width:100vw!important;
+    height:100vh!important;
+    height:100dvh!important;
+    overflow:hidden!important;
+  }
+
+  #appPage.app{
+    display:flex!important;
+    flex-direction:column!important;
+    grid-template-columns:none!important;
+    width:100vw!important;
+    height:100vh!important;
+    height:100dvh!important;
+    min-height:100vh!important;
+    min-height:100dvh!important;
+    overflow:hidden!important;
+  }
+
+  .sidebar{
+    width:100%!important;
+    max-width:100%!important;
+    height:auto!important;
+    max-height:42dvh!important;
+    flex:0 0 auto!important;
+    padding:8px 8px 6px!important;
+    border-right:0!important;
+    border-bottom:1px solid rgba(216,230,243,.95)!important;
+    box-shadow:0 8px 22px rgba(15,76,129,.08)!important;
+    overflow:hidden!important;
+  }
+
+  .side-brand{
+    flex-shrink:0!important;
+    padding:3px 5px 6px!important;
+    gap:8px!important;
+  }
+
+  .side-brand .logo-mark.logo-image{
+    width:32px!important;
+    height:32px!important;
+    border-radius:10px!important;
+  }
+
+  .side-brand strong{
+    font-size:12px!important;
+    line-height:1.1!important;
+  }
+
+  .side-brand span{
+    font-size:8.5px!important;
+    line-height:1.1!important;
+  }
+
+  .nav{
+    display:flex!important;
+    flex-direction:column!important;
+    flex:1 1 auto!important;
+    max-height:calc(42dvh - 46px)!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+    gap:2px!important;
+    padding:0 2px 4px 0!important;
+    scrollbar-width:none!important;
+  }
+
+  .nav::-webkit-scrollbar{
+    display:none!important;
+  }
+
+  .nav button{
+    width:100%!important;
+    min-height:26px!important;
+    padding:6px 8px!important;
+    font-size:11px!important;
+    line-height:1.15!important;
+    border-radius:9px!important;
+    white-space:normal!important;
+  }
+
+  .nav button:hover{
+    transform:none!important;
+  }
+
+  .nav button span:first-child,
+  .nav button span.label{
+    white-space:normal!important;
+    overflow:hidden!important;
+    text-overflow:clip!important;
+  }
+
+  .nav-section-title{
+    margin:6px 4px 3px!important;
+    padding:5px 7px!important;
+    font-size:9px!important;
+    letter-spacing:.035em!important;
+  }
+
+  .main{
+    flex:1 1 auto!important;
+    width:100%!important;
+    min-width:0!important;
+    min-height:0!important;
+    overflow:hidden!important;
+  }
+
+  .topbar{
+    height:auto!important;
+    min-height:56px!important;
+    flex:0 0 auto!important;
+    padding:8px 10px!important;
+    gap:8px!important;
+    flex-wrap:wrap!important;
+    align-items:flex-start!important;
+  }
+
+  .topbar h1{
+    font-size:16px!important;
+    line-height:1.15!important;
+  }
+
+  .topbar .sub{
+    font-size:10.5px!important;
+    margin-top:2px!important;
+  }
+
+  .topbar > .btn-row{
+    width:100%!important;
+    max-width:100%!important;
+    justify-content:flex-start!important;
+    gap:6px!important;
+    flex-wrap:wrap!important;
+  }
+
+  .topbar .btn.small{
+    height:auto!important;
+    min-height:30px!important;
+    padding:6px 8px!important;
+    font-size:10.5px!important;
+    white-space:normal!important;
+  }
+
+  .topbar .user-chip{
+    width:auto!important;
+    min-width:0!important;
+    max-width:160px!important;
+    height:30px!important;
+    min-height:30px!important;
+  }
+
+  .topbar .user-chip .avatar{
+    width:22px!important;
+    height:22px!important;
+    min-width:22px!important;
+    font-size:9px!important;
+  }
+
+  .topbar .user-chip b{
+    max-width:96px!important;
+    font-size:10.5px!important;
+  }
+
+  .topbar .user-chip small{
+    font-size:8.8px!important;
+  }
+
+  #view.view{
+    flex:1 1 auto!important;
+    height:auto!important;
+    min-height:0!important;
+    padding:10px 10px 18px!important;
+    overflow:auto!important;
+    -webkit-overflow-scrolling:touch!important;
+  }
+
+  .page-head{
+    flex-direction:column!important;
+    align-items:flex-start!important;
+    gap:8px!important;
+    margin-bottom:10px!important;
+  }
+
+  .page-head h2{
+    font-size:18px!important;
+    line-height:1.2!important;
+  }
+
+  .page-head p{
+    font-size:11px!important;
+    line-height:1.35!important;
+  }
+
+  .cards,
+  .dashboard-alert-cards,
+  .dashboard-grid,
+  .two-grid,
+  .three-grid,
+  .perf-visual-grid,
+  .budget-columns,
+  .checklist-grid{
+    grid-template-columns:1fr!important;
+  }
+
+  .filters,
+  .form-grid{
+    grid-template-columns:1fr!important;
+  }
+
+  .form-grid .span-2,
+  .form-grid .span-3{
+    grid-column:auto!important;
+  }
+
+  .panel,
+  .section-card{
+    padding:13px!important;
+    border-radius:15px!important;
+  }
+
+  .field input,
+  .field select,
+  .field textarea{
+    font-size:13px!important;
+    padding:9px 10px!important;
+  }
+
+  .page-actions{
+    width:100%!important;
+    max-width:100%!important;
+    flex-wrap:wrap!important;
+    gap:6px!important;
+    justify-content:flex-start!important;
+  }
+
+  .page-actions .btn,
+  .btn-row .btn{
+    white-space:normal!important;
+  }
+
+  .table-wrap{
+    max-width:100%!important;
+    overflow-x:auto!important;
+    -webkit-overflow-scrolling:touch!important;
+  }
+
+  table{
+    min-width:720px!important;
+  }
+
+  .calendar-head{
+    flex-wrap:wrap!important;
+    gap:8px!important;
+  }
+
+  .dashboard-grid,
+.dashboard-grid > div,
+.dashboard-grid .panel{
+  min-width:0!important;
+  max-width:100%!important;
+}
+
+.calendar-scroll{
+  display:block!important;
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  -webkit-overflow-scrolling:touch!important;
+  touch-action:pan-x pan-y!important;
+  padding-bottom:8px!important;
+}
+
+.calendar-scroll .weekdays,
+.calendar-scroll .calendar{
+  display:grid!important;
+  grid-template-columns:repeat(7,96px)!important;
+  width:672px!important;
+  min-width:672px!important;
+  max-width:none!important;
+}
+
+  .modal-backdrop{
+    padding:10px!important;
+  }
+
+  .modal{
+    width:94vw!important;
+    max-height:82dvh!important;
+    border-radius:18px!important;
+  }
+
+  .modal .body{
+    padding:14px!important;
+  }
+
+  .detail-grid{
+    grid-template-columns:1fr!important;
+  }
+}
+
+@media (max-width:420px){
+
+  .sidebar{
+    max-height:45dvh!important;
+  }
+
+  .nav{
+    max-height:calc(45dvh - 44px)!important;
+  }
+
+  .topbar h1{
+    font-size:15px!important;
+  }
+
+  .topbar .btn.small{
+    font-size:10px!important;
+    padding:6px 7px!important;
+  }
+
+  #view.view{
+    padding:9px 8px 16px!important;
+  }
+
+  table{
+    min-width:680px!important;
+  }
+}
+/* --- Mobil tarayıcı uyumluluk düzeltmesi: Android Chrome + iOS Safari --- */
+
+.mobile-menu-button,
+.mobile-menu-overlay {
+  display: none;
+}
+
+.calendar-scroll {
+  width: 100%;
+  max-width: 100%;
+}
+
+@media (max-width: 768px) {
+
+  html,
+  body,
+  #appPage.app,
+  .main {
+    height: var(--mobile-vh, 100dvh) !important;
+    min-height: var(--mobile-vh, 100dvh) !important;
+  }
+
+  .login-page {
+    min-height: var(--mobile-vh, 100dvh) !important;
+    padding-top: max(14px, env(safe-area-inset-top)) !important;
+    padding-right: max(14px, env(safe-area-inset-right)) !important;
+    padding-bottom: max(14px, env(safe-area-inset-bottom)) !important;
+    padding-left: max(14px, env(safe-area-inset-left)) !important;
+  }
+
+  #appPage.app.hidden {
+    display: none !important;
+  }
+
+  #appPage.app {
+    display: block !important;
+    position: fixed !important;
+    inset: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .main {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    z-index: 1200 !important;
+
+    width: min(86vw, 330px) !important;
+    max-width: 330px !important;
+
+    height: var(--mobile-vh, 100dvh) !important;
+    max-height: none !important;
+
+    padding-top: max(10px, env(safe-area-inset-top)) !important;
+    padding-right: 10px !important;
+    padding-bottom: max(10px, env(safe-area-inset-bottom)) !important;
+    padding-left: max(10px, env(safe-area-inset-left)) !important;
+
+    border-right: 1px solid rgba(216, 230, 243, 0.95) !important;
+    border-bottom: 0 !important;
+
+    box-shadow: 12px 0 32px rgba(15, 23, 42, 0.18) !important;
+
+    transform: translateX(-105%) !important;
+    transition: transform 0.22s ease !important;
+
+    overflow: hidden !important;
+  }
+
+  #appPage.mobile-menu-open .sidebar {
+    transform: translateX(0) !important;
+  }
+
+  .sidebar .nav {
+    max-height: none !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior: contain !important;
+  }
+
+  .sidebar .nav button {
+    min-height: 42px !important;
+    padding: 10px 11px !important;
+
+    font-size: 12px !important;
+
+    touch-action: manipulation !important;
+  }
+
+  .mobile-menu-overlay {
+    display: block !important;
+
+    position: fixed !important;
+    inset: 0 !important;
+
+    z-index: 1190 !important;
+
+    width: 100% !important;
+    height: 100% !important;
+
+    padding: 0 !important;
+
+    background: rgba(15, 23, 42, 0.42) !important;
+
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+
+    transition:
+      opacity 0.22s ease,
+      visibility 0.22s ease !important;
+  }
+
+  #appPage.mobile-menu-open .mobile-menu-overlay {
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+  }
+
+  .topbar {
+    height: auto !important;
+    min-height: 58px !important;
+
+    padding-top: max(8px, env(safe-area-inset-top)) !important;
+    padding-right: max(10px, env(safe-area-inset-right)) !important;
+    padding-bottom: 8px !important;
+    padding-left: max(10px, env(safe-area-inset-left)) !important;
+
+    align-items: center !important;
+  }
+
+  .mobile-title-row {
+    width: 100% !important;
+
+    display: flex !important;
+    align-items: center !important;
+
+    gap: 9px !important;
+    min-width: 0 !important;
+  }
+
+  .mobile-title-row > div {
+    min-width: 0 !important;
+  }
+
+  .mobile-menu-button {
+    display: inline-flex !important;
+
+    align-items: center !important;
+    justify-content: center !important;
+
+    gap: 5px !important;
+
+    min-width: 72px !important;
+    min-height: 42px !important;
+
+    padding: 8px 10px !important;
+
+    border: 1px solid rgba(15, 76, 129, 0.25) !important;
+    border-radius: 12px !important;
+
+    background: #ffffff !important;
+    color: var(--red) !important;
+
+    font-weight: 850 !important;
+    font-size: 12px !important;
+
+    box-shadow: none !important;
+
+    touch-action: manipulation !important;
+    flex: 0 0 auto !important;
+  }
+
+  .topbar > .btn-row {
+    width: 100% !important;
+    margin-left: 0 !important;
+  }
+
+  .topbar .btn.small,
+  .topbar .user-chip {
+    min-height: 42px !important;
+    height: 42px !important;
+
+    touch-action: manipulation !important;
+  }
+
+  #view.view {
+    height: auto !important;
+
+    padding-right: max(10px, env(safe-area-inset-right)) !important;
+    padding-bottom: max(20px, env(safe-area-inset-bottom)) !important;
+    padding-left: max(10px, env(safe-area-inset-left)) !important;
+
+    overscroll-behavior: contain !important;
+  }
+
+  .field input,
+  .field select,
+  .field textarea {
+    font-size: 16px !important;
+  }
+
+  .calendar-scroll {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-x: contain !important;
+
+    padding-bottom: 4px !important;
+  }
+
+  .weekdays,
+  .calendar {
+    width: 680px !important;
+    min-width: 680px !important;
+  }
+
+  .table-wrap {
+    overscroll-behavior-x: contain !important;
+  }
+
+  .modal-backdrop {
+    align-items: flex-end !important;
+
+    padding-top: max(10px, env(safe-area-inset-top)) !important;
+    padding-right: max(10px, env(safe-area-inset-right)) !important;
+    padding-bottom: max(10px, env(safe-area-inset-bottom)) !important;
+    padding-left: max(10px, env(safe-area-inset-left)) !important;
+  }
+
+  .modal {
+    width: 100% !important;
+
+    max-height: calc(
+      var(--mobile-vh, 100dvh)
+      - max(20px, env(safe-area-inset-top))
+      - max(20px, env(safe-area-inset-bottom))
+    ) !important;
+  }
+
+  .modal .body {
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .modal footer {
+    padding-bottom: max(14px, env(safe-area-inset-bottom)) !important;
+    flex-wrap: wrap !important;
+  }
+}
+
+@media (max-width: 420px) {
+
+  .mobile-menu-button span {
+    display: none !important;
+  }
+
+  .mobile-menu-button {
+    min-width: 44px !important;
+    width: 44px !important;
+    padding: 8px !important;
+  }
+
+  .topbar > .btn-row {
+    margin-left: 0 !important;
+  }
+}
+
+    /* PANORIX module controls: extends, but does not replace, the reference design system. */
+    .nav-group-title{padding:12px 12px 4px;color:#64748b;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+    .quick-button{width:100%;min-height:42px;justify-content:flex-start}
+    .eq-check,.multi-ref-check,.perm-check{width:18px!important;height:18px!important;min-width:18px!important;min-height:18px!important;padding:0!important;border-radius:4px!important;accent-color:var(--red);flex:0 0 auto}
+    .perm-check{cursor:pointer}
+    .eq-qty{width:92px!important;margin-left:auto;padding:8px 10px!important}
+    .offer-item-row input{min-width:105px;padding:9px 10px;border:1px solid var(--line);border-radius:10px}
+    .offer-item-row .oi-name{min-width:180px}
+    #mapCanvas,#streetViewCanvas{background:#eef6ff}
+    .map-filter-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;gap:10px;align-items:end}
+    .kanban-grid{display:grid;grid-template-columns:repeat(7,minmax(240px,1fr));gap:12px;overflow-x:auto;padding-bottom:8px}
+    .kanban-column{background:#f8fafc;border:1px solid var(--line);border-radius:16px;padding:12px;min-height:240px}
+    .kanban-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:10px;box-shadow:var(--shadow-soft)}
+    .detail-grid{display:grid;grid-template-columns:minmax(120px,.7fr) minmax(0,1.3fr);gap:8px 14px}
+    .detail-grid>div{padding:8px 0;border-bottom:1px solid var(--line)}
+    .detail-grid>div:nth-child(odd){font-weight:800;color:#475569}
+    .logo-image img{width:100%;height:100%;object-fit:contain;display:block}
+    @media(max-width:768px){.map-filter-grid{grid-template-columns:1fr}.kanban-grid{grid-template-columns:repeat(7,82vw)}.detail-grid{grid-template-columns:1fr}.detail-grid>div:nth-child(odd){padding-bottom:0}.detail-grid>div:nth-child(even){padding-top:2px}}
+
+  </style>
+</head>
+<body>
+  <section id="loginPage" class="login-page">
+    <div class="login-card">
+      <div class="login-hero">
+        <div>
+          <div class="logo-block"><div class="logo-mark logo-image"><img src="logo.png" alt="PANORIX"></div><div class="brand-title"><strong>PANORIX</strong><span>Şehir Reklamlarının Tüm Gücü Tek Merkezde</span></div></div>
+          <h1>PANORIX</h1>
+          <p>Şehir Reklamlarının Tüm Gücü Tek Merkezde</p>
+          <div class="hero-pills"><span class="hero-pill">Billboard Envanteri</span><span class="hero-pill">İhale ve CRM</span><span class="hero-pill">Finans Kontrolü</span><span class="hero-pill">Saha Operasyonu</span></div>
+        </div>
+        <small>Planla, kirala, yönet ve tek merkezden izle.</small>
+      </div>
+      <div id="loginFormWrap" class="login-form-wrap">
+        <h2>Hesaba Giriş</h2>
+        <p>Kullanıcı adınız ve şifreniz ile giriş yapınız.</p>
+        <form id="loginForm">
+          <div class="field"><label for="loginUsername">Kullanıcı adı</label><input id="loginUsername" autocomplete="username" required placeholder="admin" /></div>
+          <div class="field"><label for="loginPassword">Şifre</label><input id="loginPassword" type="password" autocomplete="current-password" required placeholder="Şifrenizi girin" /></div>
+          <div class="btn-row"><button class="btn" type="submit">Giriş Yap</button><button class="btn ghost small" type="button" onclick="App.showForgotPassword()">Şifremi Unuttum</button></div>
+          
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <section id="appPage" class="app hidden">
+    <aside id="mobileSidebar" class="sidebar">
+      <div class="side-brand"><div class="logo-mark logo-image"><img src="logo.png" alt="PANORIX"></div><div><strong>PANORIX</strong><span>AÇIK HAVA REKLAM ERP</span></div></div>
+      <nav id="nav" class="nav"></nav>
+       <div class="side-footer"><strong id="sideUserName">-</strong><span id="sideUserRole">-</span></div>
+    </aside>
+
+    <button
+      id="mobileMenuOverlay"
+      class="mobile-menu-overlay"
+      type="button"
+      aria-label="Menüyü kapat"
+      onclick="App.closeMobileMenu()">
+    </button>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="mobile-title-row">
+          <button
+            id="mobileMenuButton"
+            class="mobile-menu-button"
+            type="button"
+            aria-label="Menüyü aç"
+            aria-controls="mobileSidebar"
+            aria-expanded="false"
+            onclick="App.toggleMobileMenu()">
+            ☰ <span>Menü</span>
+          </button>
+
+          <div>
+            <h1 id="topTitle">Ana Dashboard</h1>
+            <div id="topSub" class="sub">Açık hava reklam operasyonel görünümü</div>
+          </div>
+        </div>
+        <div class="btn-row"><button class="btn secondary small" onclick="App.showProfile()">Profil / Şifre</button><div class="user-chip"><span id="topAvatar" class="avatar">K</span><div><b id="topUserName">-</b><br><small id="topUserRole" class="muted">-</small></div></div><button class="btn ghost small" onclick="App.logout()">Çıkış</button></div>
+      </header>
+      <section id="view" class="view"></section>
+    </main>
+  </section>
+
+  <div id="modalBackdrop" class="modal-backdrop hidden" onclick="App.backdropClose(event)"><div class="modal" role="dialog" aria-modal="true"><header><h3 id="modalTitle"></h3><button class="btn ghost small" onclick="App.closeModal()">Kapat</button></header><div id="modalBody" class="body"></div><footer id="modalFooter"></footer></div></div>
+
+  <script>
+  const App = (() => {
+    const COLLECTIONS = {
+      users:"users", municipalities:"municipalities", tenders:"tenders", ekapTenders:"ekapTenders",
+      billboards:"billboards", customers:"customers", leads:"leads", offers:"offers",
+      reservations:"reservations", contracts:"contracts", documents:"documents", invoices:"invoices",
+      payments:"payments", expenses:"expenses", operations:"operations", tasks:"tasks", vehicles:"vehicles",
+      competitors:"competitors", messages:"messages", notifications:"notifications", auditLogs:"auditLogs"
+    };
+    const ACTIONS = ["view","create","update","delete","approve","export"];
+    const ACTION_LABELS = {view:"Görüntüle",create:"Ekle",update:"Güncelle",delete:"Sil",approve:"Onayla",export:"Dışa Aktar"};
+    const ROLES = [
+      ["super_admin","Super Admin"],["admin","Admin"],["manager","Yönetici"],
+      ["sales_manager","Satış Müdürü"],["sales_rep","Satış Temsilcisi"],["accounting","Muhasebe"],
+      ["operations_manager","Operasyon Müdürü"],["operations_staff","Operasyon Personeli"],
+      ["field_staff","Saha Personeli"],["guest","Misafir"]
+    ];
+    const STATUS = ["Taslak","Aktif","Beklemede","Tamamlandı","İptal","Pasif"];
+    const PRIORITIES = ["Düşük","Normal","Yüksek","Acil"];
+    const BILLBOARD_TYPES = ["Billboard","CLP","Raket","Megalight","Totem","LED Ekran","Durak Reklamı","Kent Mobilyası","Diğer"];
+    const BILLBOARD_STATUS = ["Boş","Kirada","Rezerve","Bakımda","Pasif"];
+    const OPERATION_MATERIALS = ["Vinil","Folyo","Laminasyon","Aydınlatma","Elektrik malzemesi","Montaj aparatı","Temizlik malzemesi","Güvenlik ekipmanı","Fotoğraf çekimi","Diğer"];
+    const BILLBOARD_FEATURES = ["Aydınlatmalı","Çift yüzlü","Dijital","Elektrik bağlantısı","Kamera","Uzaktan yönetim","Trafik ölçümü","Engelli erişimi","Diğer"];
+    const MODULES = {
+      municipalities:{nav:"Belediyeler",icon:"🏛️",title:"Belediye Yönetimi",sub:"Belediye, yetkili, iletişim ve cari bilgiler",prefix:"BLD",search:"Belediye, il, ilçe veya yetkili ara...",sections:[
+        {title:"Belediye Bilgileri",note:"Belediyenin temel kurumsal bilgileri.",fields:["name","city","district","taxNumber","taxOffice","status"]},
+        {title:"İletişim ve Finans",note:"Yetkili, iletişim ve ödeme bilgileri.",fields:["contact","title","phone","email","address","iban","currentDebt"]},
+        {title:"Notlar",note:"Kurumsal ilişki ve süreç notları.",fields:["notes"]}
+      ],fields:[
+        ["name","Belediye adı","text",true],["city","İl","text",true],["district","İlçe","text",false],
+        ["taxNumber","Vergi numarası","text",false],["taxOffice","Vergi dairesi","text",false],
+        ["status","Durum","select",false,["Aktif","Pasif","Takipte"]],["contact","Yetkili kişi","text",false],
+        ["title","Unvan","text",false],["phone","Telefon","text",false],["email","E-posta","email",false],
+        ["address","Adres","textareaHalf",false],["iban","IBAN","text",false],["currentDebt","Belediye borcu","number",false],
+        ["notes","Notlar","textarea",false]
+      ],cols:[["no","Belediye No"],["name","Belediye"],["city","İl"],["district","İlçe"],["contact","Yetkili"],["currentDebt","Borç","money"],["status","Durum","badge"]]},
+      tenders:{nav:"İhaleler",icon:"📑",title:"İhale Yönetimi",sub:"İhale, teminat, sözleşme ve uyarı tarihleri",prefix:"IHL",search:"İhale, belediye, EKAP veya durum ara...",depends:["municipalities"],sections:[
+        {title:"İhale Bilgileri",note:"İhalenin temel kimliği ve belediye ilişkisi.",fields:["municipalityId","title","tenderNo","ekapNo","tenderType","status","responsibleId"]},
+        {title:"Tarih ve Süre",note:"Yayın, ihale, başlangıç ve bitiş tarihleri.",fields:["publicationDate","tenderDate","startDate","endDate","durationMonths"]},
+        {title:"Finans ve Teminat",note:"İhale bedeli ve teminat bilgileri.",fields:["estimatedValue","bidAmount","temporaryGuarantee","finalGuarantee","guaranteeEndDate","currency"]},
+        {title:"Belgeler ve Notlar",note:"Şartname ve ihale notları.",fields:["specificationFile","notes"]}
+      ],fields:[
+        ["municipalityId","Belediye","municipalityRef",true],["title","İhale başlığı","text",true],
+        ["tenderNo","İhale kayıt no","text",false],["ekapNo","EKAP no","text",false],
+        ["tenderType","İhale türü","select",false,["Açık İhale","Pazarlık","Kiraya Verme","Ecrimisil","Diğer"]],
+        ["status","Durum","select",false,["Takipte","Hazırlık","Teklif Verildi","Kazanıldı","Kaybedildi","İptal"]],
+        ["responsibleId","Sorumlu","userRef",false],["publicationDate","Yayın tarihi","date",false],
+        ["tenderDate","İhale tarihi","date",true],["startDate","Sözleşme başlangıcı","date",false],
+        ["endDate","Sözleşme bitişi","date",false],["durationMonths","Süre (Ay)","number",false],
+        ["estimatedValue","Tahmini bedel","number",false],["bidAmount","Teklif bedeli","number",false],
+        ["temporaryGuarantee","Geçici teminat","number",false],["finalGuarantee","Kesin teminat","number",false],
+        ["guaranteeEndDate","Teminat bitiş tarihi","date",false],["currency","Para birimi","select",false,["TRY","USD","EUR","GBP"]],
+        ["specificationFile","Şartname / ihale dosyası","file",false],["notes","Notlar","textarea",false]
+      ],cols:[["no","İhale No"],["municipalityId","Belediye","reference"],["title","İhale"],["tenderDate","İhale Tarihi","date"],["bidAmount","Teklif Bedeli","money"],["guaranteeEndDate","Teminat Bitişi","date"],["status","Durum","badge"]]},
+      ekapTenders:{nav:"EKAP Takip",icon:"🔎",title:"EKAP Akıllı Takip",sub:"Açık hava reklam alanlarına ilişkin ilanların takibi",prefix:"EKP",search:"İlan, anahtar kelime, belediye veya şehir ara...",sections:[
+        {title:"EKAP İlan Bilgileri",note:"Kaynak ilan ve eşleşme bilgileri.",fields:["title","municipalityName","city","district","keyword","sourceUrl","publicationDate","deadline","estimatedValue","status"]},
+        {title:"Değerlendirme",note:"İlanın uygunluk ve takip notları.",fields:["matched","assignedTo","notes"]}
+      ],fields:[
+        ["title","İlan başlığı","text",true],["municipalityName","Belediye / kurum","text",false],["city","İl","text",false],
+        ["district","İlçe","text",false],["keyword","Eşleşen anahtar kelime","select",false,["Billboard","CLP","Raket","Megalight","LED","Açık Hava Reklam","Kent Mobilyaları","Durak Reklamı","Reklam Panosu","Tanıtım Alanı"]],
+        ["sourceUrl","Kaynak bağlantısı","url",false],["publicationDate","Yayın tarihi","date",false],["deadline","Son tarih","date",false],
+        ["estimatedValue","Tahmini bedel","number",false],["status","Durum","select",false,["Yeni","İnceleniyor","Uygun","Uygun Değil","İhaleye Dönüştürüldü"]],
+        ["matched","Otomatik eşleşme","select",false,["Evet","Hayır"]],["assignedTo","Sorumlu","userRef",false],["notes","Notlar","textarea",false]
+      ],cols:[["no","Kayıt No"],["title","İlan"],["municipalityName","Belediye"],["city","İl"],["keyword","Anahtar Kelime"],["deadline","Son Tarih","date"],["status","Durum","badge"]]},
+      billboards:{nav:"Billboardlar",icon:"🪧",title:"Billboard Envanteri",sub:"Açık hava reklam alanları, konum, görsel ve kiralama durumu",prefix:"BB",search:"Kod, tür, adres, il veya durum ara...",depends:["municipalities","tenders"],sections:[
+        {title:"Kimlik ve Konum",note:"Reklam alanının kodu, türü ve adres bilgileri.",fields:["code","type","municipalityId","tenderId","city","district","neighborhood","address","latitude","longitude"]},
+        {title:"Teknik Bilgiler",note:"Ölçü, yüz, aydınlatma ve özellikler.",fields:["width","height","faces","lighting","features","status"]},
+        {title:"Kiralama ve Gelir",note:"Kiralama dönemi ve fiyat bilgileri.",fields:["rentalStart","rentalEnd","monthlyRate","currency"]},
+        {title:"Görsel ve Notlar",note:"Billboard fotoğrafı ve saha notları.",fields:["photo","notes"]}
+      ],fields:[
+        ["code","Billboard kodu","text",true],["type","Tür","select",true,BILLBOARD_TYPES],
+        ["municipalityId","Belediye","municipalityRef",false],["tenderId","İhale","tenderRef",false],
+        ["city","İl","text",true],["district","İlçe","text",false],["neighborhood","Mahalle","text",false],
+        ["address","Adres","textareaHalf",true],["latitude","Enlem","number",true],["longitude","Boylam","number",true],
+        ["width","Genişlik (m)","number",false],["height","Yükseklik (m)","number",false],["faces","Yüz sayısı","number",false],
+        ["lighting","Aydınlatma","select",false,["Yok","Var","Otomatik","Arızalı"]],["features","Teknik özellikler","checklist",false,BILLBOARD_FEATURES],
+        ["status","Durum","select",true,BILLBOARD_STATUS],["rentalStart","Kiralama başlangıcı","date",false],
+        ["rentalEnd","Kiralama bitişi","date",false],["monthlyRate","Aylık kira bedeli","number",false],
+        ["currency","Para birimi","select",false,["TRY","USD","EUR","GBP"]],["photo","Billboard fotoğrafı","image",false],
+        ["notes","Notlar","textarea",false]
+      ],cols:[["code","Kod"],["type","Tür"],["city","İl"],["district","İlçe"],["address","Adres"],["status","Durum","badge"],["monthlyRate","Aylık Bedel","money"]]},
+      customers:{nav:"Müşteriler",icon:"🏢",title:"Müşteri Yönetimi",sub:"Firma, cari, iletişim ve müşteri skoru",prefix:"MUS",search:"Firma, vergi no, yetkili veya sektör ara...",sections:[
+        {title:"Firma Bilgileri",note:"Müşterinin kurumsal ve iletişim bilgileri.",fields:["company","taxNumber","taxOffice","contact","phone","email","address","sector","status"]},
+        {title:"Cari ve Skorlama",note:"Ciro, ödeme performansı ve çalışma geçmişi.",fields:["currentBalance","totalRevenue","paymentPerformance","campaignCount","relationshipStart","lastActivity","score"]},
+        {title:"Notlar",note:"Müşteri ilişkisi ve risk notları.",fields:["notes"]}
+      ],fields:[
+        ["company","Firma adı","text",true],["taxNumber","Vergi no","text",false],["taxOffice","Vergi dairesi","text",false],
+        ["contact","Yetkili","text",false],["phone","Telefon","text",false],["email","E-posta","email",false],
+        ["address","Adres","textareaHalf",false],["sector","Sektör","text",false],["status","Durum","select",false,["Aktif","Potansiyel","Pasif","Riskli"]],
+        ["currentBalance","Cari bakiye","number",false],["totalRevenue","Toplam ciro","number",false],
+        ["paymentPerformance","Ödeme performansı (%)","number",false],["campaignCount","Kampanya sayısı","number",false],
+        ["relationshipStart","Çalışma başlangıcı","date",false],["lastActivity","Son aktivite","date",false],
+        ["score","Müşteri skoru","select",false,["A+","A","B","C","Riskli"]],["notes","Notlar","textarea",false]
+      ],cols:[["no","Müşteri No"],["company","Firma"],["contact","Yetkili"],["phone","Telefon"],["currentBalance","Cari Bakiye","money"],["score","Skor","badge"],["status","Durum","badge"]]},
+      leads:{nav:"CRM",icon:"📊",title:"CRM ve Satış Funnel",sub:"Potansiyel satış fırsatları ve aşama yönetimi",prefix:"LEAD",search:"Fırsat, müşteri, sorumlu veya aşama ara...",depends:["customers"],sections:[
+        {title:"Fırsat Bilgileri",note:"Müşteri ve satış fırsatı bilgileri.",fields:["customerId","title","stage","source","estimatedValue","probability","ownerId","status"]},
+        {title:"Takip",note:"Sonraki aksiyon ve satış notları.",fields:["nextAction","nextDate","lostReason","notes"]}
+      ],fields:[
+        ["customerId","Müşteri","customerRef",true],["title","Fırsat başlığı","text",true],
+        ["stage","Satış aşaması","select",true,["Potansiyel","Görüşüldü","Teklif Hazırlanıyor","Teklif Gönderildi","Revize","Kazanıldı","Kaybedildi"]],
+        ["source","Kaynak","select",false,["Referans","Web","Telefon","İhale","Saha","Sosyal Medya","Diğer"]],
+        ["estimatedValue","Tahmini değer","number",false],["probability","Kazanma olasılığı (%)","number",false],
+        ["ownerId","Sorumlu","userRef",false],["status","Durum","select",false,["Aktif","Beklemede","Kapandı"]],
+        ["nextAction","Sonraki aksiyon","textareaHalf",false],["nextDate","Takip tarihi","date",false],
+        ["lostReason","Kaybetme nedeni","textareaHalf",false],["notes","Notlar","textarea",false]
+      ],cols:[["no","Fırsat No"],["customerId","Müşteri","reference"],["title","Fırsat"],["stage","Aşama","badge"],["estimatedValue","Değer","money"],["probability","Olasılık (%)"],["ownerId","Sorumlu","reference"]]},
+      offers:{nav:"Teklifler",icon:"💼",title:"Teklif Yönetimi",sub:"Billboard seçimi, fiyatlandırma, iskonto ve KDV",prefix:"TEK",search:"Teklif, müşteri veya durum ara...",depends:["customers","billboards"],sections:[
+        {title:"Teklif Bilgileri",note:"Müşteri, tarih ve teklif durumu.",fields:["customerId","offerDate","validUntil","status","ownerId","currency"]},
+        {title:"Billboard Seçimi",note:"Teklife dahil edilecek reklam alanlarını seçin.",fields:["billboardIds"]},
+        {title:"Fiyatlandırma",note:"Hizmet kalemleri, iskonto ve vergi.",fields:["lineItems","discountRate","taxRate","totalAmount"]},
+        {title:"Notlar",note:"Teklif şartları ve revizyon notları.",fields:["notes"]}
+      ],fields:[
+        ["customerId","Müşteri","customerRef",true],["offerDate","Teklif tarihi","date",true],["validUntil","Geçerlilik tarihi","date",false],
+        ["status","Durum","select",false,["Taslak","Hazırlanıyor","Gönderildi","Revize","Onay Bekliyor","Kazanıldı","Kaybedildi"]],
+        ["ownerId","Sorumlu","userRef",false],["currency","Para birimi","select",false,["TRY","USD","EUR","GBP"]],
+        ["billboardIds","Billboardlar","multiBillboard",false],["lineItems","Hizmet kalemleri","serviceItems",false],
+        ["discountRate","İskonto (%)","number",false],["taxRate","KDV (%)","number",false],["totalAmount","Toplam tutar","number",false],
+        ["notes","Notlar","textarea",false]
+      ],cols:[["no","Teklif No"],["customerId","Müşteri","reference"],["offerDate","Teklif Tarihi","date"],["validUntil","Geçerlilik","date"],["totalAmount","Toplam","money"],["status","Durum","badge"]]},
+      reservations:{nav:"Rezervasyonlar",icon:"📌",title:"Rezervasyon Yönetimi",sub:"Billboard tarih aralığı ve çakışma kontrolü",prefix:"REZ",search:"Rezervasyon, müşteri, billboard veya durum ara...",depends:["customers","offers","billboards"],sections:[
+        {title:"Rezervasyon Bilgileri",note:"Müşteri, teklif ve billboard seçimi.",fields:["customerId","offerId","billboardIds","startDate","endDate","status","ownerId","totalAmount"]},
+        {title:"Notlar",note:"Rezervasyon koşulları ve açıklamalar.",fields:["notes"]}
+      ],fields:[
+        ["customerId","Müşteri","customerRef",true],["offerId","Teklif","offerRef",false],["billboardIds","Billboardlar","multiBillboard",true],
+        ["startDate","Başlangıç tarihi","date",true],["endDate","Bitiş tarihi","date",true],
+        ["status","Durum","select",false,["Beklemede","Onaylandı","Sözleşmeye Dönüştürüldü","İptal","Süresi Doldu"]],
+        ["ownerId","Sorumlu","userRef",false],["totalAmount","Toplam tutar","number",false],["notes","Notlar","textarea",false]
+      ],cols:[["no","Rezervasyon No"],["customerId","Müşteri","reference"],["startDate","Başlangıç","date"],["endDate","Bitiş","date"],["totalAmount","Tutar","money"],["status","Durum","badge"]]},
+      contracts:{nav:"Sözleşmeler",icon:"📄",title:"Sözleşme Yönetimi",sub:"Sözleşme süreleri, yenileme, tutar ve dosyalar",prefix:"SOZ",search:"Sözleşme, müşteri veya durum ara...",depends:["customers","reservations"],sections:[
+        {title:"Sözleşme Bilgileri",note:"Müşteri ve rezervasyon bağlantıları.",fields:["customerId","reservationId","contractNo","signDate","startDate","endDate","status"]},
+        {title:"Finans ve Hatırlatma",note:"Tutar, ödeme ve yenileme bilgileri.",fields:["totalAmount","currency","paymentTerms","renewalNoticeDate"]},
+        {title:"Dosya ve Notlar",note:"İmzalı sözleşme ve özel şartlar.",fields:["contractFile","notes"]}
+      ],fields:[
+        ["customerId","Müşteri","customerRef",true],["reservationId","Rezervasyon","reservationRef",false],
+        ["contractNo","Sözleşme no","text",false],["signDate","İmza tarihi","date",false],["startDate","Başlangıç","date",true],
+        ["endDate","Bitiş","date",true],["status","Durum","select",false,["Taslak","Onay Bekliyor","İmzalandı","Aktif","Sona Erdi","Feshedildi"]],
+        ["totalAmount","Sözleşme tutarı","number",false],["currency","Para birimi","select",false,["TRY","USD","EUR","GBP"]],
+        ["paymentTerms","Ödeme şartları","textareaHalf",false],["renewalNoticeDate","Yenileme uyarı tarihi","date",false],
+        ["contractFile","İmzalı sözleşme","file",false],["notes","Özel şartlar / notlar","textarea",false]
+      ],cols:[["contractNo","Sözleşme No"],["customerId","Müşteri","reference"],["startDate","Başlangıç","date"],["endDate","Bitiş","date"],["totalAmount","Tutar","money"],["status","Durum","badge"]]},
+      documents:{nav:"Evrak Merkezi",icon:"📁",title:"Evrak ve Dosya Yönetimi",sub:"Şartname, sözleşme, teminat, fatura ve görsel onayları",prefix:"EVR",search:"Dosya, kategori, etiket veya ilişkili kayıt ara...",depends:["municipalities","tenders","customers","billboards","contracts","invoices"],sections:[
+        {title:"Evrak Bilgileri",note:"Dosya, kategori ve etiket bilgileri.",fields:["fileName","category","file","tags","access","status"]},
+        {title:"İlişkiler",note:"Belgenin bağlı olduğu kayıtları seçin.",fields:["municipalityId","tenderId","customerId","billboardId","contractId","invoiceId"]},
+        {title:"Açıklama",note:"Belge açıklaması ve notları.",fields:["description"]}
+      ],fields:[
+        ["fileName","Dosya adı","text",true],["category","Kategori","select",true,["Şartname","Sözleşme","Teminat","Teslim Tutanağı","Fatura","Belediye Yazışması","Görsel Onayı","Kampanya","Diğer"]],
+        ["file","Dosya","file",true],["tags","Etiketler","text",false],["access","Erişim","select",false,["Tüm Kullanıcılar","Yönetim","Satış","Muhasebe","Operasyon"]],
+        ["status","Durum","select",false,["Aktif","Taslak","Arşiv"]],["municipalityId","Belediye","municipalityRef",false],
+        ["tenderId","İhale","tenderRef",false],["customerId","Müşteri","customerRef",false],["billboardId","Billboard","billboardRef",false],
+        ["contractId","Sözleşme","contractRef",false],["invoiceId","Fatura","invoiceRef",false],["description","Açıklama","textarea",false]
+      ],cols:[["no","Evrak No"],["fileName","Dosya"],["category","Kategori"],["tags","Etiketler"],["access","Erişim"],["status","Durum","badge"]]},
+      invoices:{nav:"Faturalar",icon:"🧾",title:"Fatura Yönetimi",sub:"Müşteri faturaları, vade ve tahsilat durumu",prefix:"FAT",search:"Fatura, müşteri veya durum ara...",depends:["customers","contracts"],sections:[
+        {title:"Fatura Bilgileri",note:"Müşteri, sözleşme ve fatura tarihleri.",fields:["customerId","contractId","invoiceNo","invoiceDate","dueDate","currency","status"]},
+        {title:"Tutarlar",note:"Matrah, vergi, toplam ve tahsilat.",fields:["amount","taxAmount","totalAmount","paidAmount","balance"]},
+        {title:"Dosya ve Notlar",note:"Fatura belgesi ve açıklamalar.",fields:["invoiceFile","notes"]}
+      ],fields:[
+        ["customerId","Müşteri","customerRef",true],["contractId","Sözleşme","contractRef",false],["invoiceNo","Fatura no","text",true],
+        ["invoiceDate","Fatura tarihi","date",true],["dueDate","Vade tarihi","date",true],["currency","Para birimi","select",false,["TRY","USD","EUR","GBP"]],
+        ["status","Durum","select",false,["Taslak","Kesildi","Kısmi Ödendi","Ödendi","Vadesi Geçti","İptal"]],
+        ["amount","Matrah","number",false],["taxAmount","Vergi","number",false],["totalAmount","Toplam","number",true],
+        ["paidAmount","Tahsil edilen","number",false],["balance","Kalan","number",false],["invoiceFile","Fatura dosyası","file",false],
+        ["notes","Notlar","textarea",false]
+      ],cols:[["invoiceNo","Fatura No"],["customerId","Müşteri","reference"],["invoiceDate","Fatura","date"],["dueDate","Vade","date"],["totalAmount","Toplam","money"],["paidAmount","Tahsil","money"],["balance","Kalan","money"],["status","Durum","badge"]]},
+      payments:{nav:"Tahsilatlar",icon:"💳",title:"Tahsilat Yönetimi",sub:"Müşteri ödemeleri, yöntem ve referans bilgileri",prefix:"TAH",search:"Tahsilat, müşteri, fatura veya referans ara...",depends:["customers","invoices"],sections:[
+        {title:"Tahsilat Bilgileri",note:"Müşteri, fatura, tarih ve tutar.",fields:["customerId","invoiceId","paymentDate","amount","currency","method","reference","status"]},
+        {title:"Notlar",note:"Banka ve tahsilat açıklamaları.",fields:["notes"]}
+      ],fields:[
+        ["customerId","Müşteri","customerRef",true],["invoiceId","Fatura","invoiceRef",false],["paymentDate","Tahsilat tarihi","date",true],
+        ["amount","Tutar","number",true],["currency","Para birimi","select",false,["TRY","USD","EUR","GBP"]],
+        ["method","Ödeme yöntemi","select",false,["Banka Havalesi","Nakit","Kredi Kartı","Çek/Senet","Diğer"]],
+        ["reference","Dekont / referans no","text",false],["status","Durum","select",false,["Bekliyor","Onaylandı","İade","İptal"]],
+        ["notes","Notlar","textarea",false]
+      ],cols:[["no","Tahsilat No"],["customerId","Müşteri","reference"],["invoiceId","Fatura","reference"],["paymentDate","Tarih","date"],["amount","Tutar","money"],["method","Yöntem"],["status","Durum","badge"]]},
+      expenses:{nav:"Finans",icon:"💰",title:"Finans ve Gider Yönetimi",sub:"Belediye ödemeleri, teminat, vergi, bakım ve montaj giderleri",prefix:"GID",search:"Gider, alacaklı, kategori veya fatura ara...",depends:["municipalities","tenders","billboards","vehicles"],sections:[
+        {title:"Gider Bilgileri",note:"Gider kategorisi, tarih ve tutar.",fields:["category","expenseDate","amount","currency","payee","invoiceNo","status"]},
+        {title:"İlişkiler",note:"Belediye, ihale, billboard veya araç bağlantısı.",fields:["municipalityId","tenderId","billboardId","vehicleId"]},
+        {title:"Dosya ve Notlar",note:"Belge ve açıklamalar.",fields:["expenseFile","notes"]}
+      ],fields:[
+        ["category","Gider kategorisi","select",true,["Belediye Ödemesi","Geçici Teminat","Kesin Teminat","Vergi","Bakım","Montaj","Vinil","Yakıt","Personel","Sigorta","Kasko","Muayene","Diğer"]],
+        ["expenseDate","Gider tarihi","date",true],["amount","Tutar","number",true],["currency","Para birimi","select",false,["TRY","USD","EUR","GBP"]],
+        ["payee","Alacaklı / tedarikçi","text",false],["invoiceNo","Fatura / belge no","text",false],
+        ["status","Durum","select",false,["Planlandı","Onay Bekliyor","Ödendi","İptal"]],["municipalityId","Belediye","municipalityRef",false],
+        ["tenderId","İhale","tenderRef",false],["billboardId","Billboard","billboardRef",false],["vehicleId","Araç","vehicleRef",false],
+        ["expenseFile","Gider belgesi","file",false],["notes","Notlar","textarea",false]
+      ],cols:[["no","Gider No"],["category","Kategori"],["expenseDate","Tarih","date"],["payee","Alacaklı"],["amount","Tutar","money"],["status","Durum","badge"]]},
+      operations:{nav:"Operasyon",icon:"🛠️",title:"Operasyon ve İş Emirleri",sub:"Montaj, söküm, vinil, temizlik ve bakım süreçleri",prefix:"OPR",search:"İş emri, billboard, sorumlu veya durum ara...",depends:["billboards","customers","contracts","vehicles"],sections:[
+        {title:"İş Emri",note:"Operasyon türü, billboard ve planlama.",fields:["operationType","billboardId","customerId","contractId","plannedDate","completedDate","assignedTo","vehicleId","priority","status"]},
+        {title:"Malzeme ve Maliyet",note:"Kullanılacak malzeme ve operasyon maliyeti.",fields:["materials","cost"]},
+        {title:"Görsel ve Notlar",note:"Saha fotoğrafı ve açıklamalar.",fields:["photo","notes"]}
+      ],fields:[
+        ["operationType","Operasyon türü","select",true,["Montaj","Söküm","Vinil Uygulama","Temizlik","Bakım","Arıza","Keşif","Fotoğraf Kontrol"]],
+        ["billboardId","Billboard","billboardRef",true],["customerId","Müşteri","customerRef",false],["contractId","Sözleşme","contractRef",false],
+        ["plannedDate","Planlanan tarih","date",true],["completedDate","Tamamlanma tarihi","date",false],["assignedTo","Sorumlu","userRef",false],
+        ["vehicleId","Araç","vehicleRef",false],["priority","Öncelik","select",false,PRIORITIES],
+        ["status","Durum","select",false,["Bekliyor","Atandı","Yolda","Devam Ediyor","Tamamlandı","Gecikti","İptal"]],
+        ["materials","Malzeme / ekipman","checklist",false,OPERATION_MATERIALS],["cost","Operasyon maliyeti","number",false],
+        ["photo","Saha fotoğrafı","image",false],["notes","Notlar","textarea",false]
+      ],cols:[["no","İş Emri"],["operationType","İşlem"],["billboardId","Billboard","reference"],["plannedDate","Planlanan","date"],["assignedTo","Sorumlu","reference"],["priority","Öncelik","priority"],["status","Durum","badge"]]},
+      tasks:{nav:"Görevler",icon:"✅",title:"Görev Yönetimi",sub:"Kişi, tarih, öncelik ve süreç bağlantılı görevler",prefix:"GRV",search:"Görev, sorumlu, modül veya durum ara...",sections:[
+        {title:"Görev Bilgileri",note:"Görev tanımı, sorumlusu ve tarihleri.",fields:["title","module","relatedRecord","assignedTo","startDate","dueDate","priority","status"]},
+        {title:"Açıklama",note:"Görevin kapsamı ve notları.",fields:["description"]}
+      ],fields:[
+        ["title","Görev başlığı","text",true],["module","İlgili modül","select",false,["Belediyeler","İhaleler","Billboardlar","Müşteriler","Teklifler","Rezervasyonlar","Sözleşmeler","Faturalar","Finans","Operasyon","Araç Yönetimi","Diğer"]],
+        ["relatedRecord","İlişkili kayıt","text",false],["assignedTo","Sorumlu","userRef",true],["startDate","Başlangıç","date",false],
+        ["dueDate","Bitiş / hedef","date",true],["priority","Öncelik","select",false,PRIORITIES],
+        ["status","Durum","select",false,["Bekliyor","Devam Ediyor","Tamamlandı","Gecikti","İptal"]],
+        ["description","Açıklama","textarea",false]
+      ],cols:[["no","Görev No"],["title","Görev"],["module","Modül"],["assignedTo","Sorumlu","reference"],["dueDate","Hedef","date"],["priority","Öncelik","priority"],["status","Durum","badge"]]},
+      vehicles:{nav:"Araç Yönetimi",icon:"🚚",title:"Araç Yönetimi",sub:"Vinç, sepetli araç, kamyonet, yakıt ve yasal takip",prefix:"ARC",search:"Plaka, araç tipi, marka veya durum ara...",sections:[
+        {title:"Araç Bilgileri",note:"Araç kimliği ve teknik bilgileri.",fields:["plate","type","brand","model","year","fuelType","status"]},
+        {title:"Yasal ve Bakım",note:"Sigorta, muayene, kasko ve bakım tarihleri.",fields:["insuranceEnd","inspectionEnd","cascoEnd","lastMaintenance","nextMaintenance","fuelCost"]},
+        {title:"Notlar",note:"Araç durumu ve açıklamalar.",fields:["notes"]}
+      ],fields:[
+        ["plate","Plaka","text",true],["type","Araç tipi","select",true,["Vinç","Sepetli Araç","Kamyonet","Otomobil","Motosiklet","Diğer"]],
+        ["brand","Marka","text",false],["model","Model","text",false],["year","Model yılı","number",false],
+        ["fuelType","Yakıt","select",false,["Dizel","Benzin","LPG","Elektrik","Hibrit"]],
+        ["status","Durum","select",false,["Aktif","Görevde","Bakımda","Pasif"]],["insuranceEnd","Sigorta bitişi","date",false],
+        ["inspectionEnd","Muayene bitişi","date",false],["cascoEnd","Kasko bitişi","date",false],
+        ["lastMaintenance","Son bakım","date",false],["nextMaintenance","Sonraki bakım","date",false],
+        ["fuelCost","Yakıt gideri","number",false],["notes","Notlar","textarea",false]
+      ],cols:[["plate","Plaka"],["type","Tür"],["brand","Marka"],["model","Model"],["insuranceEnd","Sigorta","date"],["inspectionEnd","Muayene","date"],["nextMaintenance","Bakım","date"],["status","Durum","badge"]]},
+      competitors:{nav:"Rakip Takip",icon:"🎯",title:"Rakip Takip",sub:"Rakip firma, bölge, ihale bedeli ve sözleşme süresi",prefix:"RKP",search:"Rakip, bölge, ihale veya belediye ara...",depends:["municipalities","tenders"],sections:[
+        {title:"Rakip Bilgileri",note:"Firma, bölge ve ihale bağlantıları.",fields:["company","region","municipalityId","tenderId","status"]},
+        {title:"İhale ve Sözleşme",note:"Bedel ve sözleşme süresi.",fields:["tenderAmount","contractStart","contractEnd","durationMonths"]},
+        {title:"Notlar",note:"Rekabet ve pazar notları.",fields:["notes"]}
+      ],fields:[
+        ["company","Rakip firma","text",true],["region","Bölge","text",false],["municipalityId","Belediye","municipalityRef",false],
+        ["tenderId","İhale","tenderRef",false],["status","Durum","select",false,["Aktif","Takipte","Pasif"]],
+        ["tenderAmount","İhale bedeli","number",false],["contractStart","Sözleşme başlangıcı","date",false],
+        ["contractEnd","Sözleşme bitişi","date",false],["durationMonths","Süre (Ay)","number",false],["notes","Notlar","textarea",false]
+      ],cols:[["no","Kayıt No"],["company","Rakip"],["region","Bölge"],["municipalityId","Belediye","reference"],["tenderAmount","İhale Bedeli","money"],["contractEnd","Sözleşme Bitişi","date"],["status","Durum","badge"]]}
+    };
+
+    const NAV_GROUPS = [
+      {title:"",items:[["dashboard","ANASAYFA","🏠","showDashboard"]]},
+      {title:"",items:[["municipalities","Belediyeler","🏛️","showModule('municipalities')"],["tenders","İhaleler","📑","showModule('tenders')"],["ekapTenders","EKAP Takip","🔎","showModule('ekapTenders')"]]},
+      {title:"",items:[["billboards","Billboardlar","🪧","showModule('billboards')"],["map","Harita","🗺️","showMap"]]},
+      {title:"",items:[["customers","Müşteriler","🏢","showModule('customers')"],["leads","CRM","📊","showCrm"],["offers","Teklifler","💼","showModule('offers')"],["reservations","Rezervasyonlar","📌","showModule('reservations')"],["contracts","Sözleşmeler","📄","showModule('contracts')"]]},
+      {title:"",items:[["documents","Evrak Merkezi","📁","showModule('documents')"],["invoices","Faturalar","🧾","showModule('invoices')"],["payments","Tahsilatlar","💳","showModule('payments')"],["expenses","Finans","💰","showFinance"]]},
+      {title:"",items:[["operations","Operasyon","🛠️","showModule('operations')"],["tasks","Görevler","✅","showModule('tasks')"],["calendar","Takvim","📅","showCalendar"],["vehicles","Araç Yönetimi","🚚","showModule('vehicles')"]]},
+      {title:"",items:[["reports","Raporlar","📈","showReports"],["analytics","Analizler","📌","showAnalytics"],["competitors","Rakip Takip","🎯","showModule('competitors')"]]},
+      {title:"",items:[["messages","Mesaj Merkezi","💬","showMessages"],["notifications","Bildirimler","🔔","showNotifications"],["users","Kullanıcı Yönetimi","👥","showUsers"],["settings","Ayarlar","⚙️","showSettings"]]},
+      {title:"",items:[["profile","Profil / Şifre","👤","showProfile"]]}
+    ];
+
+    const ROLE_RULES = {
+      super_admin:{all:true}, admin:{all:true},
+      manager:{view:"*",create:"*",update:"*",approve:"*",export:"*",delete:["tasks","notifications","messages"]},
+      sales_manager:{view:["municipalities","tenders","ekapTenders","billboards","customers","leads","offers","reservations","contracts","documents","invoices","payments","tasks","reports","analytics","messages","notifications"],create:["customers","leads","offers","reservations","contracts","documents","tasks","messages"],update:["customers","leads","offers","reservations","contracts","documents","tasks","messages"],approve:["offers","reservations","contracts"],export:["customers","leads","offers","reservations","contracts","reports"]},
+      sales_rep:{view:["billboards","customers","leads","offers","reservations","contracts","documents","tasks","messages","notifications"],create:["customers","leads","offers","reservations","documents","tasks","messages"],update:["customers","leads","offers","reservations","tasks","messages"],export:["customers","offers"]},
+      accounting:{view:["municipalities","tenders","customers","contracts","documents","invoices","payments","expenses","tasks","reports","analytics","notifications"],create:["documents","invoices","payments","expenses","tasks"],update:["documents","invoices","payments","expenses","tasks"],approve:["invoices","payments","expenses"],export:["customers","contracts","invoices","payments","expenses","reports","analytics"]},
+      operations_manager:{view:["municipalities","tenders","billboards","customers","reservations","contracts","documents","operations","tasks","vehicles","reports","analytics","messages","notifications"],create:["billboards","documents","operations","tasks","vehicles","messages"],update:["billboards","documents","operations","tasks","vehicles","messages"],approve:["operations","tasks"],export:["billboards","operations","tasks","vehicles","reports"]},
+      operations_staff:{view:["billboards","customers","reservations","contracts","documents","operations","tasks","vehicles","messages","notifications"],create:["documents","operations","tasks","messages"],update:["billboards","operations","tasks","messages"],export:["operations","tasks"]},
+      field_staff:{view:["billboards","documents","operations","tasks","vehicles","messages","notifications"],create:["documents","operations","tasks","messages"],update:["operations","tasks","messages"]},
+      guest:{view:["billboards","tasks","notifications"]}
+    };
+
+    const state = {
+      firebaseArgs:null, app:null, auth:null, db:null, storage:null, authUser:null, currentUser:null,
+      cache:{}, loaded:{}, loading:{}, viewKey:"dashboard", activeModule:"municipalities",
+      calendarMonth:new Date(), backendPending:new Map(), lastBackendResponseId:null,
+      messageUnsubscribe:null, map:null, markers:[], clusterer:null, MarkerClusterer:null, currentEditId:null,
+      sessionTimer:null
+    };
+
+    const $ = id => document.getElementById(id);
+    const nowIso = () => new Date().toISOString();
+    const today = () => toISO(new Date());
+    function toISO(value){ const d=new Date(value); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); }
+    function parseDate(v){ if(!v)return null; const p=String(v).split("-").map(Number); return new Date(p[0],p[1]-1,p[2]); }
+    function formatDate(v){ if(!v)return "-"; const d=v?.toDate?v.toDate():parseDate(v); return d&&!isNaN(d)?d.toLocaleDateString("tr-TR",{day:"2-digit",month:"2-digit",year:"numeric"}):"-"; }
+    function esc(v){ return String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;"); }
+    function js(v){ return String(v??"").replace(/\\/g,"\\\\").replace(/'/g,"\\'").replace(/\n/g," ").replace(/\r/g," "); }
+    function initials(name){ return String(name||"P").trim().split(/\s+/).map(x=>x[0]).join("").slice(0,2).toLocaleUpperCase("tr-TR"); }
+    function uid(){ return "id_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,8); }
+    function money(v,currency="TRY"){ return new Intl.NumberFormat("tr-TR",{style:"currency",currency:currency||"TRY",maximumFractionDigits:2}).format(Number(v||0)); }
+    function daysUntil(v){ if(!v)return 999999; const d=parseDate(v); return d?Math.ceil((d-new Date(new Date().toDateString()))/86400000):999999; }
+    function toast(message){ const t=document.createElement("div"); t.className="toast"; t.textContent=message; document.body.appendChild(t); setTimeout(()=>t.remove(),3200); }
+    function loadingHtml(text="Veriler yükleniyor..."){ return `<div class="empty">${esc(text)}</div>`; }
+    function roleName(role){ return Object.fromEntries(ROLES)[role]||role||"-"; }
+    function plainValue(value){
+      if(value==null)return value;
+      if(value?.toDate)return value.toDate().toISOString();
+      if(Array.isArray(value))return value.map(plainValue);
+      if(typeof value==="object"){ const out={}; Object.entries(value).forEach(([k,v])=>out[k]=plainValue(v)); return out; }
+      return value;
+    }
+    function getList(key){ return (state.cache[key]||[]).filter(x=>!x.isDeleted); }
+    function getAll(key){ return state.cache[key]||[]; }
+    function setTitle(title,sub){ $("topTitle").textContent=title; $("topSub").textContent=sub||""; }
+    function badge(v){ const s=String(v||"-"); const l=s.toLocaleLowerCase("tr-TR"); let cls=""; if(/aktif|boş|ödendi|tamam|kazan|onaylandı|uygun|imzalandı/.test(l))cls="success"; else if(/gecik|risk|iptal|kaybed|vadesi|arızalı/.test(l))cls="danger"; else if(/bek|hazır|rezerve|takip|revize|bakım/.test(l))cls="warning"; else if(/pasif|arşiv|sona erdi/.test(l))cls="gray"; return `<span class="badge ${cls}">${esc(s)}</span>`; }
+    function priorityBadge(v){ const s=String(v||"Normal"); const cls=s==="Acil"?"danger":s==="Yüksek"?"warning":s==="Düşük"?"gray":""; return `<span class="badge ${cls}">${esc(s)}</span>`; }
+
+    function handleStreamlitArgs(args){
+      if(!args)return;
+      state.firebaseArgs=args;
+      const response=args.backend_response;
+      if(response?.requestId && response.requestId!==state.lastBackendResponseId){
+        state.lastBackendResponseId=response.requestId;
+        const pending=state.backendPending.get(response.requestId);
+        if(pending){
+          state.backendPending.delete(response.requestId);
+          response.ok?pending.resolve(response.result):pending.reject(new Error(response.error||"Sunucu işlemi başarısız."));
+        }
+      }
+    }
+    function waitForArgs(){
+      return new Promise(resolve=>{
+        if(window.__latestStreamlitArgs){ handleStreamlitArgs(window.__latestStreamlitArgs); resolve(state.firebaseArgs); return; }
+        const S=window.Streamlit||window.streamlitComponentLib?.Streamlit;
+        const timer=setTimeout(()=>resolve(state.firebaseArgs||{}),10000);
+        S?.events?.addEventListener(S.RENDER_EVENT,e=>{ clearTimeout(timer); handleStreamlitArgs(e.detail?.args||{}); resolve(state.firebaseArgs); },{once:true});
+      });
+    }
+    async function backendCall(action,payload={}){
+      if(!state.authUser)throw new Error("Oturum bulunamadı.");
+      const token=await state.authUser.getIdToken(true);
+      const requestId=uid();
+      const S=window.Streamlit||window.streamlitComponentLib?.Streamlit;
+      if(!S)throw new Error("Streamlit bağlantısı bulunamadı.");
+      return new Promise((resolve,reject)=>{
+        state.backendPending.set(requestId,{resolve,reject});
+        S.setComponentValue({type:"backend_request",requestId,action,payload,idToken:token});
+        setTimeout(()=>{ if(state.backendPending.has(requestId)){state.backendPending.delete(requestId);reject(new Error("Sunucu yanıt süresi aşıldı."));}},45000);
+      });
+    }
+
+    async function initFirebase(){
+      const cfg=state.firebaseArgs?.firebase_config||{};
+      if(!cfg.apiKey||!cfg.projectId)throw new Error("Firebase Web yapılandırması eksik. Streamlit Secrets alanını kontrol edin.");
+      if(!window.firebase)throw new Error("Firebase JavaScript kütüphanesi yüklenemedi.");
+      state.app=firebase.apps.length?firebase.app():firebase.initializeApp(cfg);
+      state.auth=firebase.auth();
+      state.db=firebase.firestore();
+      state.storage=firebase.storage();
+      await state.auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+    }
+
+    function stopSessionWatch(){if(state.sessionTimer){clearTimeout(state.sessionTimer);state.sessionTimer=null;}}
+    function resetSessionWatch(){
+      if(!state.currentUser)return;stopSessionWatch();
+      const minutes=Math.max(1,Number(state.firebaseArgs?.session_timeout_minutes||60));
+      state.sessionTimer=setTimeout(async()=>{toast("Oturum süresi doldu. Güvenliğiniz için çıkış yapıldı.");await logout();},minutes*60*1000);
+    }
+    function showLogin(){
+      stopSessionWatch();$("appPage").classList.add("hidden"); $("loginPage").classList.remove("hidden");
+      renderLoginForm();
+    }
+    function renderLoginForm(){
+      const wrap=$("loginFormWrap"); if(!wrap)return;
+      const adminEmail=state.firebaseArgs?.initial_admin_email||"";
+      wrap.innerHTML=`<h2>Hesaba Giriş</h2><p>E-posta adresiniz ve şifreniz ile giriş yapınız.</p><form id="loginForm"><div class="field"><label for="loginUsername">E-posta</label><input id="loginUsername" type="email" autocomplete="username" required value="${esc(adminEmail)}" placeholder="ornek@firma.com"></div><div class="field"><label for="loginPassword">Şifre</label><input id="loginPassword" type="password" autocomplete="current-password" required placeholder="Şifrenizi girin"></div><div class="btn-row"><button class="btn" type="submit">Giriş Yap</button><button class="btn ghost small" type="button" onclick="App.showForgotPassword()">Şifremi Unuttum</button></div></form>`;
+      $("loginForm")?.addEventListener("submit",login);
+    }
+    async function login(e){
+      e.preventDefault();
+      const email=$("loginUsername").value.trim().toLowerCase(); const password=$("loginPassword").value;
+      try{ await state.auth.signInWithEmailAndPassword(email,password); }
+      catch(err){ console.error(err); toast(authError(err)); }
+    }
+    function authError(err){
+      const code=String(err?.code||"");
+      if(code.includes("invalid-credential")||code.includes("wrong-password")||code.includes("user-not-found"))return "E-posta veya şifre hatalı.";
+      if(code.includes("too-many-requests"))return "Çok fazla başarısız deneme yapıldı. Bir süre sonra tekrar deneyin.";
+      if(code.includes("user-disabled"))return "Kullanıcı hesabı pasif durumdadır.";
+      return err?.message||"Giriş yapılamadı.";
+    }
+    async function logout(){
+      stopSessionWatch();state.messageUnsubscribe?.(); state.messageUnsubscribe=null; state.cache={}; state.loaded={}; state.currentUser=null; state.authUser=null;
+      try{await state.auth?.signOut();}catch(e){}
+      showLogin();
+    }
+    async function showForgotPassword(){
+      openModal("Şifremi Unuttum",`<div class="field"><label>E-posta</label><input id="resetEmail" type="email" value="${esc($("loginUsername")?.value||"")}" placeholder="ornek@firma.com"></div><p class="muted">Şifre sıfırlama bağlantısı Firebase Authentication tarafından e-posta ile gönderilir.</p>`,`<button class="btn" onclick="App.sendPasswordReset()">Bağlantı Gönder</button><button class="btn ghost" onclick="App.closeModal()">Kapat</button>`);
+    }
+    async function sendPasswordReset(){
+      const email=$("resetEmail")?.value.trim().toLowerCase(); if(!email){toast("E-posta adresini girin.");return;}
+      try{await state.auth.sendPasswordResetEmail(email);closeModal();toast("Şifre sıfırlama bağlantısı gönderildi.");}catch(err){toast(authError(err));}
+    }
+    async function handleAuthenticatedUser(user){
+      state.authUser=user;
+      const snap=await state.db.collection("users").doc(user.uid).get();
+      if(!snap.exists){
+        await state.auth.signOut();
+        toast("Bu hesap için PANORIX kullanıcı profili bulunamadı. Sistem yöneticinizle iletişime geçin.");
+        return;
+      }
+      const profile={id:snap.id,...plainValue(snap.data())};
+      if(profile.isDeleted||profile.active===false){ await state.auth.signOut(); toast("Kullanıcı hesabı pasif durumdadır."); return; }
+      state.currentUser=profile;
+      await user.getIdToken(true);
+      await ensureCollection("users",true);
+      showApp();
+      await showDashboard();
+      const deepBillboard=state.firebaseArgs?.deep_link_billboard||"";
+      if(deepBillboard){
+        await ensureCollection("billboards");
+        if(getList("billboards").some(x=>x.id===deepBillboard))await openDetail("billboards",deepBillboard);
+      }
+    }
+
+    function showApp(){
+      $("loginPage").classList.add("hidden"); $("appPage").classList.remove("hidden");
+      $("sideUserName").textContent=state.currentUser.fullName||state.currentUser.email;
+      $("sideUserRole").textContent=roleName(state.currentUser.role);
+      $("topUserName").textContent=state.currentUser.fullName||state.currentUser.email;
+      $("topUserRole").textContent=roleName(state.currentUser.role);
+      $("topAvatar").textContent=initials(state.currentUser.fullName||state.currentUser.email);
+      renderNav();resetSessionWatch();
+    }
+    function roleAllows(module,action){
+      const role=state.currentUser?.role||"guest"; const rule=ROLE_RULES[role]||{};
+      if(rule.all)return true; const value=rule[action]; return value==="*"||Array.isArray(value)&&value.includes(module);
+    }
+    function can(module,action="view"){
+      if(!state.currentUser)return false;
+      if(state.currentUser.role==="super_admin"||state.currentUser.role==="admin")return true;
+      const explicit=state.currentUser.permissions?.[module]?.[action];
+      if(typeof explicit==="boolean")return explicit;
+      return roleAllows(module,action);
+    }
+    function navModuleKey(key){ return ({dashboard:"billboards",map:"billboards",calendar:"tasks",reports:"invoices",analytics:"invoices",messages:"messages",notifications:"notifications",users:"users",settings:"settings",profile:"users"})[key]||key; }
+    function navButton(item){ const [key,label,icon,fn]=item; const active=state.viewKey===key?"active":""; const call=fn.includes("(")?fn:`${fn}()`; return `<button class="${active}" onclick="App.${call}"><span><span>${icon}</span>${esc(label)}</span><span>›</span></button>`; }
+    function groupedNavHtml(){
+      return NAV_GROUPS.map(group=>{ const items=group.items.filter(item=>can(navModuleKey(item[0]),"view")); if(!items.length)return ""; return `${group.title?`<div class="nav-group-title">${esc(group.title)}</div>`:""}${items.map(navButton).join("")}`; }).join("");
+    }
+    function renderNav(){ $("nav").innerHTML=groupedNavHtml(); }
+
+    function queryForCollection(key){
+      let q=state.db.collection(COLLECTIONS[key]);
+      const org=state.currentUser?.organizationId;
+      if(key==="messages")return q.where("organizationId","==",org).where("participants","array-contains",state.authUser.uid).limit(500);
+      if(key==="notifications")return q.where("organizationId","==",org).where("recipientIds","array-contains",state.authUser.uid).limit(500);
+      if(key==="users")return q.where("organizationId","==",org).limit(500);
+      if(key==="auditLogs")return q.where("organizationId","==",org).limit(500);
+      return q.where("organizationId","==",org).limit(500);
+    }
+    async function ensureCollection(key,force=false){
+      if(!COLLECTIONS[key])return [];
+      if(state.loaded[key]&&!force)return getList(key);
+      if(state.loading[key])return state.loading[key];
+      state.loading[key]=(async()=>{
+        const snap=await queryForCollection(key).get();
+        const rows=snap.docs.map(doc=>({id:doc.id,...plainValue(doc.data())})).sort((a,b)=>String(b.updatedAt||b.createdAt||"").localeCompare(String(a.updatedAt||a.createdAt||"")));
+        state.cache[key]=rows; state.loaded[key]=true; delete state.loading[key]; return getList(key);
+      })().catch(err=>{delete state.loading[key];console.error(err);toast(`Veri yüklenemedi: ${err.message}`);throw err;});
+      return state.loading[key];
+    }
+    async function ensureDependencies(key){
+      const deps=MODULES[key]?.depends||[]; await Promise.all([ensureCollection(key),ensureCollection("users"),...deps.map(ensureCollection)]);
+    }
+    async function nextSequence(key,prefix){
+      const year=new Date().getFullYear(); const id=`${state.currentUser.organizationId}_${key}_${year}`; const ref=state.db.collection("counters").doc(id);
+      return state.db.runTransaction(async tx=>{ const snap=await tx.get(ref); const current=snap.exists?Number(snap.data().value||0):0; const next=current+1; tx.set(ref,{organizationId:state.currentUser.organizationId,module:key,year,value:next,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}); return `${prefix}-${year}-${String(next).padStart(4,"0")}`; });
+    }
+    async function writeAudit(batch,action,module,recordId,oldData,newData){
+      const ref=state.db.collection("auditLogs").doc();
+      batch.set(ref,{organizationId:state.currentUser.organizationId,userId:state.authUser.uid,userName:state.currentUser.fullName||state.currentUser.email,action,module,recordId,oldData:oldData||{},newData:newData||{},createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+    }
+    async function auditEvent(action,module,recordId,oldData={},newData={}){
+      const batch=state.db.batch();await writeAudit(batch,action,module,recordId,oldData,newData);await batch.commit();
+    }
+    async function syncInvoiceFromPayments(invoiceId){
+      if(!invoiceId)return;
+      await Promise.all([ensureCollection("payments",true),ensureCollection("invoices",true)]);
+      const invoice=getAll("invoices").find(x=>x.id===invoiceId);if(!invoice)return;
+      const paid=getList("payments").filter(x=>x.invoiceId===invoiceId&&x.status==="Onaylandı").reduce((sum,x)=>sum+Number(x.amount||0),0);
+      const total=Number(invoice.totalAmount||0),balance=Math.max(0,total-paid);
+      let status=balance<=0&&total>0?"Ödendi":paid>0?"Kısmi Ödendi":invoice.dueDate&&daysUntil(invoice.dueDate)<0?"Vadesi Geçti":invoice.status||"Kesildi";
+      const batch=state.db.batch(),ref=state.db.collection("invoices").doc(invoiceId);
+      batch.set(ref,{paidAmount:paid,balance,status,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedBy:state.authUser.uid},{merge:true});
+      await writeAudit(batch,"automatic_payment_sync","invoices",invoiceId,{paidAmount:invoice.paidAmount,balance:invoice.balance,status:invoice.status},{paidAmount:paid,balance,status});
+      await batch.commit();state.loaded.invoices=false;
+    }
+    async function syncBillboardStatuses(affectedIds=[]){
+      const ids=[...new Set((affectedIds||[]).filter(Boolean))];if(!ids.length)return;
+      await Promise.all([ensureCollection("billboards",true),ensureCollection("reservations",true),ensureCollection("contracts",true)]);
+      const reservations=getList("reservations"),contracts=getList("contracts"),batch=state.db.batch();let writes=0;
+      ids.forEach(id=>{const billboard=getAll("billboards").find(x=>x.id===id);if(!billboard)return;const activeReservations=reservations.filter(r=>Array.isArray(r.billboardIds)&&r.billboardIds.includes(id)&&["Onaylandı","Sözleşmeye Dönüştürüldü"].includes(r.status)&&(!r.endDate||r.endDate>=today()));const activeContract=contracts.some(c=>["İmzalandı","Aktif"].includes(c.status)&&activeReservations.some(r=>r.id===c.reservationId));let next=activeContract?"Kirada":activeReservations.length?"Rezerve":(["Bakımda","Pasif"].includes(billboard.status)?billboard.status:"Boş");if(next!==billboard.status){batch.set(state.db.collection("billboards").doc(id),{status:next,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedBy:state.authUser.uid},{merge:true});writes+=1;}});
+      if(writes)await batch.commit();state.loaded.billboards=false;
+    }
+
+    async function uploadFieldFile(key,recordId,field,input){
+      const file=input?.files?.[0]; if(!file)return null;
+      const max=20*1024*1024; if(file.size>max)throw new Error(`${field[1]} dosyası 20 MB sınırını aşıyor.`);
+      const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,"_"); const path=`organizations/${state.currentUser.organizationId}/${key}/${recordId}/${Date.now()}_${safe}`;
+      const ref=state.storage.ref(path); const snap=await ref.put(file,{contentType:file.type||"application/octet-stream"}); const url=await snap.ref.getDownloadURL();
+      return {name:file.name,url,path,size:file.size,type:file.type||"application/octet-stream"};
+    }
+
+    function fieldDef(module,key){ return module.fields.find(f=>f[0]===key); }
+    const REF_TYPES={municipalityRef:["municipalities","name"],tenderRef:["tenders","title"],customerRef:["customers","company"],billboardRef:["billboards","code"],offerRef:["offers","no"],reservationRef:["reservations","no"],contractRef:["contracts","contractNo"],invoiceRef:["invoices","invoiceNo"],vehicleRef:["vehicles","plate"],userRef:["users","fullName"]};
+    function refOptions(type){ const cfg=REF_TYPES[type]; if(!cfg)return[]; return getList(cfg[0]).map(r=>({id:r.id,label:r[cfg[1]]||r.no||r.email||r.id})); }
+    function refLabel(type,id){ if(!id)return "-"; const cfg=REF_TYPES[type]; if(!cfg)return id; const row=getList(cfg[0]).find(r=>r.id===id); return row?.[cfg[1]]||row?.no||row?.email||id; }
+    function relationType(module,colKey){ return fieldDef(module,colKey)?.[2]; }
+    function displayCell(module,col,row){
+      const [key,,type]=col; const val=row[key]; const fType=relationType(module,key);
+      if(type==="date")return formatDate(val); if(type==="money")return money(val,row.currency||"TRY"); if(type==="badge")return badge(val); if(type==="priority")return priorityBadge(val);
+      if(type==="reference"||REF_TYPES[fType])return esc(refLabel(fType,val));
+      if(Array.isArray(val))return esc(val.map(x=>typeof x==="string"?x:(x.name||x.label||"")).filter(Boolean).join(", "));
+      if(typeof val==="object"&&val?.name)return `<a href="${esc(val.url||"#")}" target="_blank" rel="noopener">${esc(val.name)}</a>`;
+      return esc(val??"-");
+    }
+    function filterOptions(key){ const rows=getList(key); return [...new Set(rows.map(r=>r.status||r.stage||r.category||r.type).filter(Boolean))].sort(); }
+    function rowSearchText(row){ return JSON.stringify(row).toLocaleLowerCase("tr-TR"); }
+    function renderModuleRows(key){
+      const m=MODULES[key]; let rows=getList(key); const q=($("moduleSearch")?.value||"").trim().toLocaleLowerCase("tr-TR"); const f=$("moduleFilter")?.value||""; const ds=$("dateStart")?.value||""; const de=$("dateEnd")?.value||"";
+      if(q)rows=rows.filter(r=>rowSearchText(r).includes(q)); if(f)rows=rows.filter(r=>Object.values(r).includes(f));
+      if(ds)rows=rows.filter(r=>JSON.stringify(r).match(/\d{4}-\d{2}-\d{2}/g)?.some(d=>d>=ds)); if(de)rows=rows.filter(r=>JSON.stringify(r).match(/\d{4}-\d{2}-\d{2}/g)?.some(d=>d<=de));
+      const target=$("moduleRows"); if(!target)return;
+      if(!rows.length){target.innerHTML=`<div class="empty">Kayıt bulunamadı.</div>`;return;}
+      target.innerHTML=`<div class="table-wrap"><table><thead><tr>${m.cols.map(c=>`<th>${esc(c[1])}</th>`).join("")}<th>İşlem</th></tr></thead><tbody>${rows.map(r=>`<tr>${m.cols.map(c=>`<td>${displayCell(m,c,r)}</td>`).join("")}<td><div class="btn-row"><button class="btn secondary small" onclick="App.openDetail('${key}','${r.id}')">Detay</button>${can(key,"update")?`<button class="btn ghost small" onclick="App.showModuleForm('${key}','${r.id}')">Düzenle</button>`:""}${can(key,"delete")?`<button class="btn danger small" onclick="App.deleteRecord('${key}','${r.id}')">Sil</button>`:""}</div></td></tr>`).join("")}</tbody></table></div>`;
+    }
+    function moduleButtons(key){
+      return `${can(key,"create")?`<button class="btn secondary small" onclick="App.showModuleForm('${key}')">Yeni Kayıt</button>`:""}${can(key,"export")?`<button class="btn secondary small" onclick="App.downloadTemplate('${key}')">Boş Excel Şablonu</button><button class="btn secondary small" onclick="App.importExcel('${key}')">İçe Aktar</button><button class="btn ghost small" onclick="App.exportExcel('${key}')">Excel</button><button class="btn ghost small" onclick="App.exportCsv('${key}')">CSV</button><button class="btn ghost small" onclick="App.exportPdf('${key}')">PDF</button>`:""}<button class="btn ghost small" onclick="App.showDashboard()">Anasayfaya Dön</button>`;
+    }
+    function moduleActions(html){ return `<div class="page-actions">${html}</div>`; }
+    async function showModule(key){
+      if(!can(key,"view")){toast("Bu modül için görüntüleme yetkiniz yok.");return;}
+      state.viewKey=key;state.activeModule=key;renderNav();const m=MODULES[key];setTitle(m.title,m.sub);$("view").innerHTML=loadingHtml();
+      await ensureDependencies(key);
+      $("view").innerHTML=`<div class="page-head motto-head"><div class="motto-title"><p>${esc(m.sub)}</p></div></div><div class="panel module-list-panel">${moduleActions(moduleButtons(key))}<div class="filters"><div class="field"><label>Arama</label><input id="moduleSearch" oninput="App.renderModuleRows('${key}')" placeholder="${esc(m.search)}"></div><div class="field"><label>Durum / kategori</label><select id="moduleFilter" onchange="App.renderModuleRows('${key}')"><option value="">Tümü</option>${filterOptions(key).map(x=>`<option>${esc(x)}</option>`).join("")}</select></div><div class="field"><label>Başlangıç</label><input id="dateStart" type="date" onchange="App.renderModuleRows('${key}')"></div><div class="field"><label>Bitiş</label><input id="dateEnd" type="date" onchange="App.renderModuleRows('${key}')"></div>${can(key,"create")?`<button class="btn secondary small" onclick="App.showModuleForm('${key}')">Yeni Kayıt</button>`:""}</div><div id="moduleRows"></div></div>`;
+      renderModuleRows(key);
+    }
+
+    function checklistHtml(name,label,options,row){
+      const data=row?.[name]||{}; return `<div class="field span-2"><label>${esc(label)}</label><div class="checklist-grid">${options.map(opt=>{const val=data?.[opt]??"";const checked=val!==""&&val!=null&&val!==false;const other=opt==="Diğer";return `<div class="equipment-line" data-field="${esc(name)}"><label><input type="checkbox" class="eq-check" data-name="${esc(opt)}" ${checked?"checked":""} onchange="App.toggleChecklist(this)"><span>${esc(opt)}</span></label>${other?`<input type="text" class="eq-other-text" value="${esc(typeof val==="string"?val:"")}" ${checked?"":"disabled"} placeholder="Açıklama">`:`<input type="number" min="1" class="eq-qty" value="${esc(typeof val==="number"?val:checked?1:"")}" ${checked?"":"disabled"} placeholder="Adet">`}</div>`;}).join("")}</div></div>`;
+    }
+    function toggleChecklist(chk){ const line=chk.closest(".equipment-line"); const input=line?.querySelector(".eq-qty,.eq-other-text"); if(!input)return; input.disabled=!chk.checked; if(!chk.checked)input.value=""; else if(!input.value&&input.type==="number")input.value=1; }
+    function collectChecklist(name){ const out={}; document.querySelectorAll(`.equipment-line[data-field="${name}"]`).forEach(line=>{const chk=line.querySelector(".eq-check");const input=line.querySelector(".eq-qty,.eq-other-text");if(chk?.checked)out[chk.dataset.name]=input?.type==="number"?Number(input.value||1):String(input?.value||"").trim();});return out; }
+    function multiBillboardHtml(name,label,row){ const selected=new Set(Array.isArray(row?.[name])?row[name]:[]); const rows=getList("billboards"); return `<div class="field span-2"><label>${esc(label)}</label><div class="checklist-grid">${rows.length?rows.map(b=>`<div class="equipment-line" data-multiref="${esc(name)}"><label><input type="checkbox" class="multi-ref-check" value="${b.id}" ${selected.has(b.id)?"checked":""}><span>${esc(b.code||b.no)} • ${esc(b.type||"")} • ${esc(b.district||b.city||"")}</span></label><input type="text" value="${esc(b.status||"")}" disabled></div>`).join(""):`<div class="empty">Billboard kaydı bulunmuyor.</div>`}</div></div>`; }
+    function collectMultiRef(name){ return [...document.querySelectorAll(`[data-multiref="${name}"] .multi-ref-check:checked`)].map(x=>x.value); }
+    function offerItemRow(item={}){ return `<tr class="offer-item-row"><td><input class="oi-name" value="${esc(item.name||"")}" placeholder="Hizmet Kalemi"></td><td><input class="oi-qty" type="number" min="0" value="${esc(item.quantity||"")}" oninput="App.recalcOfferItems()" placeholder="Adet"></td><td><input class="oi-price" type="number" min="0" value="${esc(item.unitPrice||"")}" oninput="App.recalcOfferItems()" placeholder="Birim Fiyat"></td><td><input class="oi-total" type="number" value="${esc(item.total||"")}" readonly></td><td><input class="oi-vat" type="number" min="0" value="${esc(item.vat??20)}" oninput="App.recalcOfferItems()"></td><td><input class="oi-vat-total" type="number" value="${esc(item.vatIncluded||"")}" readonly></td><td><button type="button" class="btn ghost small" onclick="App.removeOfferItem(this)">Sil</button></td></tr>`; }
+    function serviceItemsHtml(row){ const items=Array.isArray(row?.lineItems)&&row.lineItems.length?row.lineItems:[{}];return `<div class="field span-2"><label>Hizmet kalemleri</label><div class="table-wrap"><table class="service-table"><thead><tr><th>Hizmet Kalemi</th><th>Adet</th><th>Birim Fiyat</th><th>Toplam</th><th>KDV %</th><th>KDV Dahil</th><th></th></tr></thead><tbody id="offerItemsBody">${items.map(offerItemRow).join("")}</tbody></table></div><button type="button" class="btn secondary small" onclick="App.addOfferItem()">+ Hizmet Kalemi Ekle</button></div>`; }
+    function addOfferItem(){ $("offerItemsBody")?.insertAdjacentHTML("beforeend",offerItemRow({})); }
+    function removeOfferItem(btn){btn.closest("tr")?.remove();if(!document.querySelectorAll(".offer-item-row").length)addOfferItem();recalcOfferItems();}
+    function recalcOfferItems(){document.querySelectorAll(".offer-item-row").forEach(row=>{const q=Number(row.querySelector(".oi-qty")?.value||0),p=Number(row.querySelector(".oi-price")?.value||0),v=Number(row.querySelector(".oi-vat")?.value||0);const t=q*p,inc=t+t*v/100;row.querySelector(".oi-total").value=t?t.toFixed(2):"";row.querySelector(".oi-vat-total").value=inc?inc.toFixed(2):"";});}
+    function collectOfferItems(){recalcOfferItems();return [...document.querySelectorAll(".offer-item-row")].map(row=>({name:row.querySelector(".oi-name")?.value||"",quantity:Number(row.querySelector(".oi-qty")?.value||0),unitPrice:Number(row.querySelector(".oi-price")?.value||0),total:Number(row.querySelector(".oi-total")?.value||0),vat:Number(row.querySelector(".oi-vat")?.value||0),vatIncluded:Number(row.querySelector(".oi-vat-total")?.value||0)})).filter(x=>x.name||x.quantity||x.unitPrice);}
+    function fileHtml(name,label,type,required,row){ const current=row?.[name]; return `<div class="field"><label>${esc(label)}${required?" *":""}</label>${current?.url?`<a href="${esc(current.url)}" target="_blank" rel="noopener">Mevcut dosya: ${esc(current.name||"Dosyayı aç")}</a>`:""}<input id="f_${name}" type="file" ${type==="image"?'accept="image/*"':''} ${required&&!current?"required":""}></div>`; }
+    function fieldHtml(field,row){
+      const [name,label,type,required,extra]=field; const val=row?.[name]??""; const req=required?"required":""; const ph=Array.isArray(extra)?"":extra||"";
+      if(type==="textarea"||type==="textareaHalf")return `<div class="field ${type==="textareaHalf"?"":"span-2"}"><label>${esc(label)}${required?" *":""}</label><textarea id="f_${name}" ${req} placeholder="${esc(ph)}">${esc(val)}</textarea></div>`;
+      if(type==="select")return `<div class="field"><label>${esc(label)}${required?" *":""}</label><select id="f_${name}" ${req}><option value="">Seçiniz</option>${(extra||[]).map(o=>`<option value="${esc(o)}" ${String(val)===String(o)?"selected":""}>${esc(o)}</option>`).join("")}</select></div>`;
+      if(REF_TYPES[type])return `<div class="field"><label>${esc(label)}${required?" *":""}</label><select id="f_${name}" ${req}><option value="">Seçiniz</option>${refOptions(type).map(o=>`<option value="${o.id}" ${String(val)===String(o.id)?"selected":""}>${esc(o.label)}</option>`).join("")}</select></div>`;
+      if(type==="checklist")return checklistHtml(name,label,extra||[],row);
+      if(type==="multiBillboard")return multiBillboardHtml(name,label,row);
+      if(type==="serviceItems")return serviceItemsHtml(row);
+      if(type==="file"||type==="image")return fileHtml(name,label,type,required,row);
+      return `<div class="field"><label>${esc(label)}${required?" *":""}</label><input id="f_${name}" type="${type||"text"}" ${req} value="${esc(val)}" placeholder="${esc(ph)}" ${type==="number"?'step="any"':""}></div>`;
+    }
+    function formSections(m){ return m.sections||[{title:"Temel Bilgiler",note:"Alanları eksiksiz doldurun.",fields:m.fields.map(f=>f[0])}]; }
+    async function showModuleForm(key,id=""){
+      if(!can(key,id?"update":"create")){toast("Bu işlem için yetkiniz yok.");return;}
+      state.viewKey=key;state.activeModule=key;state.currentEditId=id;renderNav();const m=MODULES[key];setTitle(id?`${m.nav} Kaydını Düzenle`:m.newLabel||`Yeni ${m.nav}`,m.sub);$("view").innerHTML=loadingHtml();await ensureDependencies(key);const row=id?getList(key).find(x=>x.id===id):null;const sections=formSections(m);
+      $("view").innerHTML=`<form id="recordForm" onsubmit="App.saveRecord(event,'${key}','${id}')"><div class="page-head motto-head"><div class="motto-title"><p>${id?"Kaydı güncelleyin":"Yeni kayıt bilgilerini girin"}</p></div></div>${sections.map((sec,idx)=>`<div class="section-card"><div class="section-title"><div><h3>${esc(sec.title)}</h3><p class="muted">${esc(sec.note||"")}</p></div><span class="step-pill">${idx+1}</span></div><div class="form-grid">${sec.fields.map(n=>fieldDef(m,n)).filter(Boolean).map(f=>fieldHtml(f,row)).join("")}</div></div>`).join("")}<div class="page-actions"><button class="btn" type="submit">Kaydet</button><button class="btn ghost" type="button" onclick="App.showModule('${key}')">Listeye Dön</button><button class="btn ghost" type="button" onclick="App.showDashboard()">Anasayfaya Dön</button></div></form>`;
+      if(key==="offers")setTimeout(recalcOfferItems,0);
+    }
+    function isEmptyValue(value){
+      if(value===null||value===undefined||value==="")return true;
+      if(Array.isArray(value))return value.length===0;
+      if(typeof value==="object")return Object.keys(value).length===0;
+      return false;
+    }
+    function validateRequiredFields(module,data,old,includeFiles=false){
+      for(const field of module.fields){
+        const [name,label,type,required]=field;if(!required)continue;
+        if(["file","image"].includes(type)&&!includeFiles)continue;
+        const value=data[name]??old?.[name];
+        if(isEmptyValue(value))throw new Error(`${label} alanı zorunludur.`);
+        if(type==="checklist"&&value?.Diğer!==undefined&&!String(value.Diğer||"").trim())throw new Error(`${label} içindeki Diğer açıklamasını girin.`);
+      }
+    }
+    function validateBusinessRecord(key,data){
+      const datePairs=[["startDate","endDate","Bitiş tarihi başlangıç tarihinden önce olamaz."],["offerDate","validUntil","Teklif geçerlilik tarihi teklif tarihinden önce olamaz."],["invoiceDate","dueDate","Fatura vadesi fatura tarihinden önce olamaz."],["contractStart","contractEnd","Sözleşme bitişi başlangıçtan önce olamaz."],["lastMaintenance","nextMaintenance","Sonraki bakım tarihi son bakımdan önce olamaz."]];
+      datePairs.forEach(([a,b,message])=>{if(data[a]&&data[b]&&data[b]<data[a])throw new Error(message);});
+      const percentFields=[["discountRate","İskonto"],["taxRate","KDV"],["probability","Olasılık"]];
+      percentFields.forEach(([name,label])=>{if(data[name]!==undefined&&data[name]!==""&&(Number(data[name])<0||Number(data[name])>100))throw new Error(`${label} değeri 0 ile 100 arasında olmalıdır.`);});
+      const nonNegative=["amount","totalAmount","monthlyRate","estimatedValue","currentDebt","temporaryGuarantee","finalGuarantee","cost","fuelCost","tenderAmount","paidAmount","balance","durationMonths","year"];
+      nonNegative.forEach(name=>{if(data[name]!==undefined&&data[name]!==""&&Number(data[name])<0)throw new Error(`${name} alanı negatif olamaz.`);});
+      if(key==="billboards"){
+        if(data.latitude!==""&&data.latitude!==undefined&&(Number(data.latitude)<-90||Number(data.latitude)>90))throw new Error("Enlem -90 ile 90 arasında olmalıdır.");
+        if(data.longitude!==""&&data.longitude!==undefined&&(Number(data.longitude)<-180||Number(data.longitude)>180))throw new Error("Boylam -180 ile 180 arasında olmalıdır.");
+      }
+      if(key==="offers"&&Array.isArray(data.lineItems)){
+        data.lineItems.forEach((item,index)=>{if(Number(item.quantity||0)<0||Number(item.unitPrice||0)<0)throw new Error(`${index+1}. teklif kaleminde negatif değer olamaz.`);});
+      }
+    }
+    async function validateReservation(data,id){
+      if(!data.startDate||!data.endDate||!Array.isArray(data.billboardIds))return;
+      if(!data.billboardIds.length)throw new Error("En az bir billboard seçmelisiniz.");
+      if(data.endDate<data.startDate)throw new Error("Bitiş tarihi başlangıç tarihinden önce olamaz.");
+      await ensureCollection("reservations",true);
+      const conflict=getList("reservations").find(r=>r.id!==id&&!["İptal","Süresi Doldu"].includes(r.status)&&Array.isArray(r.billboardIds)&&r.billboardIds.some(b=>data.billboardIds.includes(b))&&r.startDate<=data.endDate&&r.endDate>=data.startDate);
+      if(conflict)throw new Error(`Seçilen billboardlardan biri ${conflict.no||"başka bir rezervasyon"} ile tarih çakışması oluşturuyor.`);
+    }
+    async function saveRecord(e,key,id=""){
+      e.preventDefault();const m=MODULES[key];const old=id?getAll(key).find(x=>x.id===id):null;const data={};const uploadedPaths=[];const replacedPaths=[];let committed=false;
+      try{
+        for(const field of m.fields){const [name,,type]=field;if(type==="checklist"){data[name]=collectChecklist(name);continue;}if(type==="multiBillboard"){data[name]=collectMultiRef(name);continue;}if(type==="serviceItems"){data[name]=collectOfferItems();continue;}if(type==="file"||type==="image")continue;const el=$("f_"+name);if(!el)continue;data[name]=type==="number"?(el.value===""?0:Number(el.value)):el.value;}
+        if(key==="offers"){const gross=(data.lineItems||[]).reduce((sum,item)=>sum+Number(item.vatIncluded||0),0);data.totalAmount=Math.max(0,gross-gross*Number(data.discountRate||0)/100);}
+        if(key==="invoices"){data.balance=Math.max(0,Number(data.totalAmount||0)-Number(data.paidAmount||0));}
+        validateRequiredFields(m,data,old,false);validateBusinessRecord(key,data);
+        if(key==="reservations")await validateReservation(data,id);
+        const ref=id?state.db.collection(COLLECTIONS[key]).doc(id):state.db.collection(COLLECTIONS[key]).doc();
+        if(!id)data.no=await nextSequence(key,m.prefix);
+        for(const field of m.fields){const [name,,type]=field;if(type==="file"||type==="image"){const uploaded=await uploadFieldFile(key,ref.id,field,$("f_"+name));if(uploaded){data[name]=uploaded;uploadedPaths.push(uploaded.path);if(old?.[name]?.path)replacedPaths.push(old[name].path);}}}
+        validateRequiredFields(m,data,old,true);
+        const common={organizationId:state.currentUser.organizationId,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedBy:state.authUser.uid,updatedByName:state.currentUser.fullName||state.currentUser.email,isDeleted:false};
+        if(!id)Object.assign(common,{createdAt:firebase.firestore.FieldValue.serverTimestamp(),createdBy:state.authUser.uid,createdByName:state.currentUser.fullName||state.currentUser.email});
+        const batch=state.db.batch();batch.set(ref,{...data,...common},{merge:true});await writeAudit(batch,id?"update":"create",key,ref.id,old||{},data);await batch.commit();committed=true;
+        await Promise.all(replacedPaths.map(path=>state.storage.ref(path).delete().catch(()=>null)));
+        state.loaded[key]=false;await ensureCollection(key,true);
+        if(key==="payments"){await syncInvoiceFromPayments(data.invoiceId);if(old?.invoiceId&&old.invoiceId!==data.invoiceId)await syncInvoiceFromPayments(old.invoiceId);}
+        if(key==="reservations"){await syncBillboardStatuses([...(old?.billboardIds||[]),...(data.billboardIds||[])]);}
+        if(key==="contracts"){await ensureCollection("reservations",true);const related=[old?.reservationId,data.reservationId].filter(Boolean).map(rid=>getAll("reservations").find(r=>r.id===rid)).filter(Boolean).flatMap(r=>r.billboardIds||[]);await syncBillboardStatuses(related);}
+        toast("Kayıt kaydedildi.");await showModule(key);
+      }catch(err){
+        console.error(err);
+        if(!committed)await Promise.all(uploadedPaths.map(path=>state.storage.ref(path).delete().catch(()=>null)));
+        if(committed){toast(`Kayıt kaydedildi; otomatik eşitleme tamamlanamadı: ${err.message||"Bilinmeyen hata"}`);state.loaded[key]=false;await ensureCollection(key,true);await showModule(key);}
+        else toast(err.message||"Kayıt kaydedilemedi.");
+      }
+    }
+    async function deleteRecord(key,id){
+      if(!can(key,"delete")){toast("Silme yetkiniz yok.");return;}if(!confirm("Kayıt arşivlensin mi?"))return;
+      const old=getAll(key).find(x=>x.id===id);if(!old)return;
+      try{
+        const ref=state.db.collection(COLLECTIONS[key]).doc(id),batch=state.db.batch();
+        batch.set(ref,{isDeleted:true,deletedAt:firebase.firestore.FieldValue.serverTimestamp(),deletedBy:state.authUser.uid,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedBy:state.authUser.uid,updatedByName:state.currentUser.fullName||state.currentUser.email},{merge:true});
+        await writeAudit(batch,"soft_delete",key,id,old,{isDeleted:true});await batch.commit();state.loaded[key]=false;await ensureCollection(key,true);
+        if(key==="payments"&&old.invoiceId)await syncInvoiceFromPayments(old.invoiceId);
+        if(key==="reservations")await syncBillboardStatuses(old.billboardIds||[]);
+        if(key==="contracts"&&old.reservationId){await ensureCollection("reservations",true);const reservation=getAll("reservations").find(r=>r.id===old.reservationId);if(reservation)await syncBillboardStatuses(reservation.billboardIds||[]);}
+        toast("Kayıt arşivlendi.");showModule(key);
+      }catch(err){console.error(err);toast(err.message||"Kayıt arşivlenemedi.");}
+    }
+
+    async function openDetail(key,id){await ensureDependencies(key);const m=MODULES[key];const row=getList(key).find(x=>x.id===id);if(!row)return;const pairs=[["Kayıt No",row.no||row.code||row.contractNo||row.invoiceNo],...m.fields.map(f=>[f[1],row[f[0]],f[2]])];const extra=key==="billboards"?`<button class="btn secondary" onclick="App.showBillboardQr('${id}')">QR Kod</button><button class="btn ghost" onclick="App.closeModal();App.showMap()">Haritada Göster</button>`:"";openModal(`${m.nav} Detayı`,`<div class="detail-grid">${pairs.map(([a,b,t])=>`<div>${esc(a)}</div><div>${fancyValue(b,t)}</div>`).join("")}</div>`,`${extra}${can(key,"update")?`<button class="btn secondary" onclick="App.showModuleForm('${key}','${id}');App.closeModal()">Düzenle</button>`:""}<button class="btn ghost" onclick="App.closeModal()">Kapat</button>`);}
+    function fancyValue(v,type){if(v==null||v==="")return "-";if(REF_TYPES[type])return esc(refLabel(type,v));if(Array.isArray(v))return v.length?`<ul>${v.map(x=>`<li>${esc(typeof x==="string"?(type==="multiBillboard"?refLabel("billboardRef",x):x):(x.name||JSON.stringify(x)))}</li>`).join("")}</ul>`:"-";if(typeof v==="object"){if(v.url)return `${v.type?.startsWith("image/")?`<img src="${esc(v.url)}" alt="${esc(v.name)}" style="max-width:100%;max-height:280px;border-radius:14px;display:block;margin-bottom:8px">`:""}<a href="${esc(v.url)}" target="_blank" rel="noopener">${esc(v.name||"Dosyayı aç")}</a>`;return `<ul>${Object.entries(v).map(([k,val])=>`<li>${esc(k)}: ${esc(val)}</li>`).join("")}</ul>`;}return esc(v);}
+
+    async function showBillboardQr(id){
+      const base=String(state.firebaseArgs?.app_public_url||"").replace(/\/$/,"");if(!base){toast("APP_PUBLIC_URL Streamlit Secrets içinde tanımlı değil.");return;}
+      try{const result=await backendCall("generate_qr",{url:`${base}/?billboard=${encodeURIComponent(id)}`,filename:`billboard-${id}-qr.png`});openModal("Billboard QR Kodu",`<div style="text-align:center"><img src="data:image/png;base64,${result.base64}" alt="QR Kod" style="width:min(320px,90%);border-radius:16px"><p class="muted">${esc(result.url)}</p></div>`,`<button class="btn secondary" onclick="App.downloadBase64File('${result.filename}','${result.base64}','image/png')">İndir</button><button class="btn ghost" onclick="App.closeModal()">Kapat</button>`);}catch(err){toast(err.message);}
+    }
+    function downloadBase64File(filename,data,mime){downloadBase64(filename,data,mime);}
+
+    async function showDashboard(){
+      state.viewKey="dashboard";renderNav();setTitle("Ana Dashboard","Billboard, gelir, tahsilat, sözleşme ve risk görünümü");$("view").innerHTML=loadingHtml();
+      await Promise.all(["billboards","invoices","payments","contracts","expenses","tasks","tenders","municipalities","operations"].map(ensureCollection));
+      const billboards=getList("billboards"),invoices=getList("invoices"),contracts=getList("contracts"),expenses=getList("expenses"),tasks=getList("tasks"),tenders=getList("tenders"),municipalities=getList("municipalities");
+      const rented=billboards.filter(x=>x.status==="Kirada").length,available=billboards.filter(x=>x.status==="Boş").length,occupancy=billboards.length?Math.round(rented/billboards.length*100):0;
+      const month=today().slice(0,7),year=today().slice(0,4);const monthlyRevenue=invoices.filter(x=>String(x.invoiceDate||"").startsWith(month)).reduce((s,x)=>s+Number(x.totalAmount||0),0);const annualRevenue=invoices.filter(x=>String(x.invoiceDate||"").startsWith(year)).reduce((s,x)=>s+Number(x.totalAmount||0),0);
+      const pending=invoices.reduce((s,x)=>s+Number(x.balance??Math.max(0,Number(x.totalAmount||0)-Number(x.paidAmount||0))),0);const upcomingContracts=contracts.filter(x=>daysUntil(x.endDate)>=0&&daysUntil(x.endDate)<=90).length;const municipalityDebt=municipalities.reduce((s,x)=>s+Number(x.currentDebt||0),0);
+      const riskItems=[...invoices.filter(x=>x.dueDate&&daysUntil(x.dueDate)<0&&Number(x.balance||0)>0).map(x=>({level:"KIRMIZI",title:`Vadesi geçen fatura: ${x.invoiceNo||x.no}`,date:x.dueDate})),...contracts.filter(x=>x.endDate&&daysUntil(x.endDate)<=30&&daysUntil(x.endDate)>=0).map(x=>({level:"SARI",title:`Sözleşme bitişi: ${refLabel("customerRef",x.customerId)}`,date:x.endDate})),...tenders.filter(x=>x.tenderDate&&daysUntil(x.tenderDate)<=30&&daysUntil(x.tenderDate)>=0).map(x=>({level:"SARI",title:`Yaklaşan ihale: ${x.title}`,date:x.tenderDate})),...tasks.filter(x=>x.dueDate&&x.status!=="Tamamlandı"&&daysUntil(x.dueDate)<0).map(x=>({level:"KIRMIZI",title:`Geciken görev: ${x.title}`,date:x.dueDate}))].slice(0,10);
+      $("view").innerHTML=`<div class="page-head motto-head"><div class="motto-title"><p>Şehir reklamlarının tüm gücü tek merkezde</p></div></div><div class="cards">${statCard("Toplam Billboard",billboards.length,"Tüm envanter","showModule('billboards')")}${statCard("Kiralanan",rented,"Aktif kiralama","showModule('billboards')")}${statCard("Boş Billboard",available,"Satışa hazır","showMap()")}${statCard("Doluluk Oranı",`%${occupancy}`,"Envanter doluluğu","showAnalytics()")}${statCard("Bu Ayki Gelir",money(monthlyRevenue),"Fatura toplamı","showModule('invoices')")}</div><div class="cards">${statCard("Yıllık Gelir",money(annualRevenue),"Cari yıl","showReports()")}${statCard("Bekleyen Tahsilat",money(pending),"Açık bakiye","showModule('payments')")}${statCard("Yaklaşan Sözleşme",upcomingContracts,"90 gün içinde","showModule('contracts')")}${statCard("Belediye Borçları",money(municipalityDebt),"Kayıtlı cari borç","showFinance()")}${statCard("Yaklaşan İhaleler",tenders.filter(x=>daysUntil(x.tenderDate)>=0&&daysUntil(x.tenderDate)<=30).length,"30 gün içinde","showModule('tenders')")}</div><div class="dashboard-grid"><div class="panel">${calendarHtml()}</div><div><div class="panel"><h3>Risk Merkezi</h3>${riskItems.length?riskItems.map(r=>`<div class="mini-item"><div><strong>${esc(r.level)} • ${esc(r.title)}</strong><span>${formatDate(r.date)}</span></div>${badge(r.level)}</div>`).join(""):`<div class="empty">Kritik veya yaklaşan risk bulunmuyor.</div>`}</div><div class="panel" style="margin-top:16px"><h3>Hızlı Bakış</h3>${quickItem("Aktif İhale",tenders.filter(x=>!["Kaybedildi","İptal"].includes(x.status)).length,"showModule('tenders')")}${quickItem("Açık Görev",tasks.filter(x=>!["Tamamlandı","İptal"].includes(x.status)).length,"showModule('tasks')")}${quickItem("Operasyon",getList("operations").filter(x=>x.status!=="Tamamlandı").length,"showModule('operations')")}${quickItem("Gider",money(expenses.reduce((s,x)=>s+Number(x.amount||0),0)),"showFinance()")}</div></div></div>`;
+    }
+    function statCard(label,num,hint,fn){return `<button class="stat-card red" onclick="App.${fn}"><div class="label">${esc(label)}</div><div class="num">${esc(num)}</div><div class="hint">${esc(hint)}</div></button>`;}
+    function quickItem(label,num,fn){return `<button class="mini-item quick-button" onclick="App.${fn}"><div><strong>${esc(label)}</strong><span>Detayları görüntüle</span></div><b>${esc(num)}</b></button>`;}
+
+    function calendarItems(iso){const out=[];getList("tenders").forEach(x=>{if(x.tenderDate===iso)out.push({key:"tenders",id:x.id,title:`İhale: ${x.title}`});if(x.guaranteeEndDate===iso)out.push({key:"tenders",id:x.id,title:`Teminat: ${x.title}`});});getList("contracts").forEach(x=>{if(x.endDate===iso)out.push({key:"contracts",id:x.id,title:`Sözleşme: ${refLabel("customerRef",x.customerId)}`});});getList("operations").forEach(x=>{if(x.plannedDate===iso)out.push({key:"operations",id:x.id,title:`Operasyon: ${x.operationType}`});});getList("tasks").forEach(x=>{if(x.dueDate===iso)out.push({key:"tasks",id:x.id,title:`Görev: ${x.title}`});});return out;}
+    function calendarHtml(){const md=new Date(state.calendarMonth.getFullYear(),state.calendarMonth.getMonth(),1),title=md.toLocaleDateString("tr-TR",{month:"long",year:"numeric"}),year=md.getFullYear(),month=md.getMonth(),first=(new Date(year,month,1).getDay()+6)%7,days=new Date(year,month+1,0).getDate(),prev=new Date(year,month,0).getDate(),cells=[];for(let i=0;i<42;i++){let day,cm=month,cls="day";if(i<first){day=prev-first+i+1;cm=month-1;cls+=" other"}else if(i>=first+days){day=i-first-days+1;cm=month+1;cls+=" other"}else day=i-first+1;const iso=toISO(new Date(year,cm,day));if(iso===today())cls+=" today";const items=calendarItems(iso);cells.push(`<div class="${cls}"><div class="day-num"><span>${day}</span>${iso===today()?"<span>Bugün</span>":""}</div>${items.slice(0,4).map(x=>`<button class="cal-chip" onclick="App.openCalendarItem('${x.key}','${x.id}')">${esc(x.title)}</button>`).join("")}</div>`);}return `<div class="calendar-head"><h3>PANORIX Takvimi - ${esc(title)}</h3><div class="btn-row"><button class="btn ghost small" onclick="App.moveMonth(-1)">‹ Önceki</button><button class="btn secondary small" onclick="App.thisMonth()">Bugün</button><button class="btn ghost small" onclick="App.moveMonth(1)">Sonraki ›</button></div></div><div class="calendar-scroll"><div class="weekdays">${["Pzt","Sal","Çar","Per","Cum","Cmt","Paz"].map(d=>`<div class="weekday">${d}</div>`).join("")}</div><div class="calendar">${cells.join("")}</div></div>`;}
+    async function showCalendar(){state.viewKey="calendar";renderNav();setTitle("Takvim","İhale, sözleşme, görev ve operasyon görünümü");$("view").innerHTML=loadingHtml();await Promise.all(["tenders","contracts","operations","tasks","customers"].map(ensureCollection));$("view").innerHTML=`<div class="panel">${calendarHtml()}</div>${moduleActions('<button class="btn ghost small" onclick="App.showDashboard()">Anasayfaya Dön</button>')}`;}
+    function moveMonth(n){state.calendarMonth.setMonth(state.calendarMonth.getMonth()+n);showCalendar();}function thisMonth(){state.calendarMonth=new Date();showCalendar();}function openCalendarItem(key,id){openDetail(key,id);}
+
+    async function loadGoogleMaps(){
+      if(!window.google?.maps){
+        const key=state.firebaseArgs?.google_maps_api_key||"";if(!key)throw new Error("GOOGLE_MAPS_API_KEY tanımlanmamış.");
+        await new Promise((resolve,reject)=>{window.__panorixMapsReady=resolve;const s=document.createElement("script");s.src=`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=marker&v=weekly&loading=async&callback=__panorixMapsReady`;s.async=true;s.onerror=()=>reject(new Error("Google Maps yüklenemedi."));document.head.appendChild(s);});
+      }
+      if(!state.MarkerClusterer){
+        try{
+          const clusterModule=await import("https://cdn.jsdelivr.net/npm/@googlemaps/markerclusterer@2.5.3/+esm");
+          state.MarkerClusterer=clusterModule.MarkerClusterer||null;
+        }catch(_error){ state.MarkerClusterer=null; }
+      }
+    }
+    async function showMap(){
+      if(!can("billboards","view")){toast("Harita için billboard görüntüleme yetkisi gerekir.");return;}state.viewKey="map";renderNav();setTitle("Harita","Billboard konumları, durumlar ve Street View");$("view").innerHTML=loadingHtml();await ensureCollection("billboards");
+      $("view").innerHTML=`<div class="panel"><div class="filters"><div class="field"><label>Durum</label><select id="mapStatus" onchange="App.renderMapMarkers()"><option value="">Tümü</option>${BILLBOARD_STATUS.map(x=>`<option>${x}</option>`).join("")}</select></div><div class="field"><label>İl</label><input id="mapCity" oninput="App.renderMapMarkers()" placeholder="İl"></div><div class="field"><label>İlçe</label><input id="mapDistrict" oninput="App.renderMapMarkers()" placeholder="İlçe"></div><button class="btn ghost small" onclick="App.showDashboard()">Anasayfaya Dön</button></div><div id="mapCanvas" style="height:calc(100vh - 250px);min-height:460px;border-radius:16px;overflow:hidden;border:1px solid var(--line)"></div></div>`;
+      try{await loadGoogleMaps();const first=getList("billboards").find(x=>Number(x.latitude)&&Number(x.longitude));state.map=new google.maps.Map($("mapCanvas"),{center:first?{lat:Number(first.latitude),lng:Number(first.longitude)}:{lat:39.0,lng:35.0},zoom:first?12:6,mapTypeControl:true,streetViewControl:true,fullscreenControl:true});renderMapMarkers();}catch(err){$("mapCanvas").innerHTML=`<div class="empty">${esc(err.message)} Streamlit Secrets ve Google Cloud API kısıtlarını kontrol edin.</div>`;}
+    }
+    function markerColor(status){return status==="Boş"?"#2E7D32":status==="Kirada"?"#C62828":status==="Rezerve"?"#F9A825":status==="Bakımda"?"#1976D2":"#6B7280";}
+    function renderMapMarkers(){
+      if(!state.map||!window.google?.maps)return;
+      if(state.clusterer){state.clusterer.clearMarkers();state.clusterer=null;}
+      state.markers.forEach(m=>m.setMap(null));state.markers=[];
+      const status=$("mapStatus")?.value||"",city=($("mapCity")?.value||"").toLocaleLowerCase("tr-TR"),district=($("mapDistrict")?.value||"").toLocaleLowerCase("tr-TR");
+      getList("billboards").filter(b=>Number(b.latitude)&&Number(b.longitude)&&(!status||b.status===status)&&(!city||String(b.city||"").toLocaleLowerCase("tr-TR").includes(city))&&(!district||String(b.district||"").toLocaleLowerCase("tr-TR").includes(district))).forEach(b=>{
+        const marker=new google.maps.Marker({position:{lat:Number(b.latitude),lng:Number(b.longitude)},title:`${b.code||b.no} • ${b.status||""}`,icon:{path:google.maps.SymbolPath.CIRCLE,scale:10,fillColor:markerColor(b.status),fillOpacity:1,strokeColor:"#ffffff",strokeWeight:2}});
+        const info=new google.maps.InfoWindow({content:`<div style="min-width:220px"><strong>${esc(b.code||b.no)} • ${esc(b.type||"")}</strong><p>${esc(b.address||"")}</p><p>${badge(b.status)}</p></div>`});
+        marker.addListener("click",()=>{info.open({anchor:marker,map:state.map});openMapDetail(b.id);});state.markers.push(marker);
+      });
+      if(state.MarkerClusterer&&state.markers.length>1){state.clusterer=new state.MarkerClusterer({map:state.map,markers:state.markers});}
+      else{state.markers.forEach(marker=>marker.setMap(state.map));}
+    }
+    function openMapDetail(id){const b=getList("billboards").find(x=>x.id===id);if(!b)return;openModal(`${b.code||b.no} • ${b.type||"Billboard"}`,`<div class="two-grid"><div>${b.photo?.url?`<img src="${esc(b.photo.url)}" alt="Billboard" style="width:100%;max-height:350px;object-fit:cover;border-radius:16px">`:`<div class="empty">Billboard görseli yok.</div>`}<div class="detail-grid" style="margin-top:12px"><div>Adres</div><div>${esc(b.address||"-")}</div><div>Durum</div><div>${badge(b.status)}</div><div>Aylık bedel</div><div>${money(b.monthlyRate,b.currency)}</div></div></div><div id="streetViewCanvas" style="min-height:360px;border-radius:16px;overflow:hidden;border:1px solid var(--line)"></div></div>`,`<button class="btn secondary" onclick="App.showModuleForm('billboards','${id}');App.closeModal()">Düzenle</button><button class="btn ghost" onclick="App.closeModal()">Kapat</button>`);setTimeout(()=>{if(window.google?.maps&&Number(b.latitude)&&Number(b.longitude))new google.maps.StreetViewPanorama($("streetViewCanvas"),{position:{lat:Number(b.latitude),lng:Number(b.longitude)},pov:{heading:0,pitch:0},zoom:1});},100);}
+
+    async function showCrm(){
+      state.viewKey="leads";renderNav();setTitle("CRM ve Satış Funnel","Fırsatların aşama bazlı görünümü");$("view").innerHTML=loadingHtml();await Promise.all([ensureCollection("leads"),ensureCollection("customers"),ensureCollection("users")]);
+      const stages=["Potansiyel","Görüşüldü","Teklif Hazırlanıyor","Teklif Gönderildi","Revize","Kazanıldı","Kaybedildi"];
+      $("view").innerHTML=`${moduleActions(`${can("leads","create")?'<button class="btn secondary small" onclick="App.showModuleForm(\'leads\')">Yeni Fırsat</button>':""}<button class="btn ghost small" onclick="App.showModule('leads')">Liste Görünümü</button><button class="btn ghost small" onclick="App.showDashboard()">Anasayfaya Dön</button>`)}<div style="display:grid;grid-template-columns:repeat(7,minmax(240px,1fr));gap:12px;overflow-x:auto;padding-bottom:12px">${stages.map(stage=>{const rows=getList("leads").filter(x=>x.stage===stage);return `<div class="panel" style="padding:12px;min-height:420px"><h3>${esc(stage)} <span class="badge gray">${rows.length}</span></h3><p class="muted">${money(rows.reduce((s,x)=>s+Number(x.estimatedValue||0),0))}</p>${rows.length?rows.map(r=>`<button class="mini-item quick-button" onclick="App.openDetail('leads','${r.id}')"><div><strong>${esc(r.title)}</strong><span>${esc(refLabel("customerRef",r.customerId))} • %${esc(r.probability||0)}</span></div></button>`).join(""):`<div class="empty">Kayıt yok.</div>`}</div>`;}).join("")}</div>`;
+    }
+
+    async function showFinance(){
+      state.viewKey="expenses";renderNav();setTitle("Finans","Gelir, tahsilat, gider ve belediye borçları");$("view").innerHTML=loadingHtml();await Promise.all(["invoices","payments","expenses","municipalities"].map(ensureCollection));const invoices=getList("invoices"),payments=getList("payments"),expenses=getList("expenses"),municipalities=getList("municipalities");const revenue=invoices.reduce((s,x)=>s+Number(x.totalAmount||0),0),collected=payments.filter(x=>x.status==="Onaylandı").reduce((s,x)=>s+Number(x.amount||0),0),expense=expenses.filter(x=>x.status!=="İptal").reduce((s,x)=>s+Number(x.amount||0),0),debt=municipalities.reduce((s,x)=>s+Number(x.currentDebt||0),0);
+      $("view").innerHTML=`<div class="cards">${statCard("Toplam Fatura",money(revenue),"Gelir","showModule('invoices')")}${statCard("Tahsilat",money(collected),"Onaylanan","showModule('payments')")}${statCard("Toplam Gider",money(expense),"Kayıtlı gider","showModule('expenses')")}${statCard("Net Nakit",money(collected-expense),"Tahsilat - gider","showAnalytics()")}${statCard("Belediye Borçları",money(debt),"Cari borç","showModule('municipalities')")}</div><div class="two-grid"><div class="panel"><h3>Gider Dağılımı</h3>${groupMoney(expenses,"category","amount")}</div><div class="panel"><h3>Açık Faturalar</h3>${invoices.filter(x=>Number(x.balance||0)>0).slice(0,15).map(x=>`<div class="mini-item"><div><strong>${esc(x.invoiceNo||x.no)}</strong><span>${esc(refLabel("customerRef",x.customerId))} • ${formatDate(x.dueDate)}</span></div><b>${money(x.balance,x.currency)}</b></div>`).join("")||'<div class="empty">Açık fatura bulunmuyor.</div>'}</div></div>${moduleActions('<button class="btn secondary small" onclick="App.showModule(\'expenses\')">Gider Kayıtları</button><button class="btn ghost small" onclick="App.showDashboard()">Anasayfaya Dön</button>')}`;
+    }
+    function groupMoney(rows,key,valueKey){const g={};rows.forEach(x=>g[x[key]||"Diğer"]=(g[x[key]||"Diğer"]||0)+Number(x[valueKey]||0));return Object.entries(g).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="mini-item"><div><strong>${esc(k)}</strong></div><b>${money(v)}</b></div>`).join("")||'<div class="empty">Veri yok.</div>';}
+
+    async function showReports(){state.viewKey="reports";renderNav();setTitle("Raporlar","Ciro, doluluk, kârlılık ve tahsilat raporları");$("view").innerHTML=loadingHtml();await Promise.all(["invoices","payments","expenses","billboards","tenders","customers","municipalities"].map(ensureCollection));const reports=[["Aylık Ciro","invoices"],["Yıllık Ciro","invoices"],["Doluluk","billboards"],["İhale Karlılığı","tenders"],["Billboard Karlılığı","billboards"],["Müşteri Karlılığı","customers"],["Belediye Karlılığı","municipalities"],["Tahsilat Performansı","payments"]];$("view").innerHTML=`<div class="three-grid">${reports.map(([name,key])=>`<div class="panel"><h3>${esc(name)}</h3><p class="muted">${esc(MODULES[key]?.sub||"PANORIX verileri üzerinden hazırlanır.")}</p><div class="btn-row"><button class="btn secondary small" onclick="App.exportExcel('${key}')">Excel</button><button class="btn ghost small" onclick="App.exportCsv('${key}')">CSV</button><button class="btn ghost small" onclick="App.exportPdf('${key}')">PDF</button><button class="btn ghost small" onclick="App.showModule('${key}')">Kayıtlar</button></div></div>`).join("")}</div>${moduleActions('<button class="btn ghost small" onclick="App.showDashboard()">Anasayfaya Dön</button>')}`;}
+    async function showAnalytics(){state.viewKey="analytics";renderNav();setTitle("Analizler","Billboard, ihale, ilçe, belediye ve ROI analizi");$("view").innerHTML=loadingHtml();await Promise.all(["billboards","invoices","payments","expenses","tenders","municipalities","customers"].map(ensureCollection));const income=getList("invoices").reduce((s,x)=>s+Number(x.totalAmount||0),0),expense=getList("expenses").reduce((s,x)=>s+Number(x.amount||0),0),profit=income-expense,roi=expense?Math.round(profit/expense*100):0;$("view").innerHTML=`<div class="cards">${statCard("Toplam Gelir",money(income),"Faturalar","showModule('invoices')")}${statCard("Toplam Gider",money(expense),"Finans","showFinance()")}${statCard("Kâr / Zarar",money(profit),"Gelir - gider","showFinance()")}${statCard("ROI",`%${roi}`,"Yatırım getirisi","showAnalytics()")}${statCard("Doluluk",`%${getList("billboards").length?Math.round(getList("billboards").filter(x=>x.status==="Kirada").length/getList("billboards").length*100):0}`,"Billboard","showMap()")}</div><div class="two-grid"><div class="panel"><h3>İlçe Bazlı Envanter</h3>${groupCount(getList("billboards"),"district")}</div><div class="panel"><h3>Belediye Bazlı İhaleler</h3>${groupReferenceCount(getList("tenders"),"municipalityId","municipalityRef")}</div></div><div class="two-grid" style="margin-top:18px"><div class="panel"><h3>Müşteri Bazlı Ciro</h3>${customerRevenue()}</div><div class="panel"><h3>Billboard Durumu</h3>${groupCount(getList("billboards"),"status")}</div></div>${moduleActions('<button class="btn ghost small" onclick="App.showDashboard()">Anasayfaya Dön</button>')}`;}
+    function groupCount(rows,key){const g={};rows.forEach(x=>g[x[key]||"Belirtilmedi"]=(g[x[key]||"Belirtilmedi"]||0)+1);return Object.entries(g).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="mini-item"><div><strong>${esc(k)}</strong></div><b>${v}</b></div>`).join("")||'<div class="empty">Veri yok.</div>';}
+    function groupReferenceCount(rows,key,type){const g={};rows.forEach(x=>{const l=refLabel(type,x[key]);g[l]=(g[l]||0)+1;});return Object.entries(g).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="mini-item"><div><strong>${esc(k)}</strong></div><b>${v}</b></div>`).join("")||'<div class="empty">Veri yok.</div>';}
+    function customerRevenue(){const g={};getList("invoices").forEach(x=>{const l=refLabel("customerRef",x.customerId);g[l]=(g[l]||0)+Number(x.totalAmount||0);});return Object.entries(g).sort((a,b)=>b[1]-a[1]).slice(0,15).map(([k,v])=>`<div class="mini-item"><div><strong>${esc(k)}</strong></div><b>${money(v)}</b></div>`).join("")||'<div class="empty">Veri yok.</div>';}
+
+    async function showMessages(){state.viewKey="messages";renderNav();setTitle("Mesaj Merkezi","Gerçek zamanlı şirket içi mesajlaşma");$("view").innerHTML=loadingHtml();await Promise.all([ensureCollection("users"),ensureCollection("messages",true)]);renderMessagesPage();state.messageUnsubscribe?.();state.messageUnsubscribe=queryForCollection("messages").onSnapshot(snap=>{state.cache.messages=snap.docs.map(d=>({id:d.id,...plainValue(d.data())})).sort((a,b)=>String(a.createdAt||"").localeCompare(String(b.createdAt||"")));state.loaded.messages=true;if(state.viewKey==="messages")renderMessagesList();});}
+    function renderMessagesPage(){$("view").innerHTML=`<div class="two-grid"><div class="panel"><h3>Yeni Mesaj</h3><form onsubmit="App.sendMessage(event)"><div class="field"><label>Alıcı</label><select id="messageReceiver" required><option value="">Seçiniz</option>${getList("users").filter(u=>u.id!==state.authUser.uid&&u.active).map(u=>`<option value="${u.id}">${esc(u.fullName||u.email)}</option>`).join("")}</select></div><div class="field"><label>Mesaj</label><textarea id="messageBody" required></textarea></div><button class="btn">Gönder</button></form></div><div class="panel"><h3>Mesajlar</h3><div id="messagesList"></div></div></div>${moduleActions('<button class="btn ghost small" onclick="App.showDashboard()">Anasayfaya Dön</button>')}`;renderMessagesList();}
+    function renderMessagesList(){const el=$("messagesList");if(!el)return;const rows=getList("messages");el.innerHTML=rows.length?rows.slice(-100).reverse().map(m=>`<div class="mini-item"><div><strong>${esc(m.senderId===state.authUser.uid?"Siz":refLabel("userRef",m.senderId))} → ${esc(m.receiverId===state.authUser.uid?"Siz":refLabel("userRef",m.receiverId))}</strong><span>${esc(m.body)} • ${m.createdAt?new Date(m.createdAt).toLocaleString("tr-TR"):""}</span></div></div>`).join(""):'<div class="empty">Henüz mesaj bulunmuyor.</div>';}
+    async function sendMessage(e){e.preventDefault();const receiverId=$("messageReceiver").value,body=$("messageBody").value.trim();if(!receiverId||!body)return;try{const ref=state.db.collection("messages").doc(),batch=state.db.batch();batch.set(ref,{organizationId:state.currentUser.organizationId,senderId:state.authUser.uid,receiverId,participants:[state.authUser.uid,receiverId],body,readBy:[state.authUser.uid],createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp(),isDeleted:false});await writeAudit(batch,"send_message","messages",ref.id,{}, {receiverId,bodyLength:body.length});await batch.commit();$("messageBody").value="";toast("Mesaj gönderildi.");}catch(err){console.error(err);toast(err.message||"Mesaj gönderilemedi.");}}
+
+    async function showNotifications(){state.viewKey="notifications";renderNav();setTitle("Bildirimler","İhale, tahsilat, sözleşme, görev ve operasyon bildirimleri");$("view").innerHTML=loadingHtml();await ensureCollection("notifications",true);if(can("auditLogs","view")||["super_admin","admin"].includes(state.currentUser.role))await ensureCollection("auditLogs",true);const notifications=getList("notifications");const logs=getList("auditLogs");$("view").innerHTML=`<div class="two-grid"><div class="panel"><h3>Sistem Bildirimleri</h3>${notifications.length?notifications.map(n=>`<div class="mini-item"><div><strong>${esc(n.title||n.type||"Bildirim")}</strong><span>${esc(n.message||"")} • ${n.createdAt?new Date(n.createdAt).toLocaleString("tr-TR"):""}</span></div>${(n.readBy||[]).includes(state.authUser.uid)?badge("Okundu"):`<button class="btn secondary small" onclick="App.markNotificationRead('${n.id}')">Okundu</button>`}</div>`).join(""):'<div class="empty">Bildirim bulunmuyor.</div>'}</div><div class="panel"><h3>İşlem Geçmişi</h3>${logs.length?logs.slice(0,80).map(l=>`<div class="mini-item"><div><strong>${esc(l.action)} • ${esc(l.module)}</strong><span>${esc(l.userName||"")} • ${l.createdAt?new Date(l.createdAt).toLocaleString("tr-TR"):""}</span></div></div>`).join(""):'<div class="empty">Yetkili işlem kaydı bulunmuyor.</div>'}</div></div>${moduleActions('<button class="btn ghost small" onclick="App.showDashboard()">Anasayfaya Dön</button>')}`;}
+    async function markNotificationRead(id){await state.db.collection("notifications").doc(id).update({readBy:firebase.firestore.FieldValue.arrayUnion(state.authUser.uid),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});await ensureCollection("notifications",true);showNotifications();}
+
+    function permissionsEditor(user){return `<div class="field span-2"><label>Özel Yetki Matrisi</label><div class="table-wrap"><table><thead><tr><th>Modül</th>${ACTIONS.map(a=>`<th>${ACTION_LABELS[a]}</th>`).join("")}</tr></thead><tbody>${Object.entries(MODULES).map(([key,m])=>`<tr><td>${esc(m.nav)}</td>${ACTIONS.map(a=>`<td><input type="checkbox" class="perm-check" data-module="${key}" data-action="${a}" ${user?.permissions?.[key]?.[a]===true?"checked":""}></td>`).join("")}</tr>`).join("")}</tbody></table></div><p class="muted">İşaretlenmeyen alanlarda rolün varsayılan yetkileri uygulanır.</p></div>`;}
+    function collectPermissions(){const out={};document.querySelectorAll(".perm-check:checked").forEach(x=>{out[x.dataset.module]=out[x.dataset.module]||{};out[x.dataset.module][x.dataset.action]=true;});return out;}
+    async function showUsers(editId=""){if(!can("users","view")){toast("Kullanıcı yönetimi yetkiniz yok.");return;}state.viewKey="users";renderNav();setTitle("Kullanıcı Yönetimi","Firebase Authentication, rol, profil ve yetki matrisi");$("view").innerHTML=loadingHtml();await ensureCollection("users",true);const users=getAll("users").filter(x=>!x.isDeleted),edit=editId?users.find(x=>x.id===editId):null;$("view").innerHTML=`<div class="two-grid"><div class="panel"><h3>Kullanıcılar</h3><div class="table-wrap"><table><thead><tr><th>Kullanıcı</th><th>Rol</th><th>Birim</th><th>Durum</th><th>İşlem</th></tr></thead><tbody>${users.map(u=>`<tr><td><strong>${esc(u.fullName||u.email)}</strong><br><span class="muted">${esc(u.email||"")}</span></td><td>${esc(roleName(u.role))}</td><td>${esc(u.department||"-")}</td><td>${badge(u.active===false?"Pasif":"Aktif")}</td><td><div class="btn-row"><button class="btn secondary small" onclick="App.showUsers('${u.id}')">Düzenle</button>${!u.isSuperAdmin?`<button class="btn ghost small" onclick="App.toggleUser('${u.id}',${u.active===false?"true":"false"})">${u.active===false?"Aktifleştir":"Pasifleştir"}</button><button class="btn danger small" onclick="App.softDeleteUser('${u.id}')">Sil</button>`:""}</div></td></tr>`).join("")}</tbody></table></div></div><div class="panel"><h3>${edit?"Kullanıcıyı Düzenle":"Yeni Kullanıcı"}</h3><form onsubmit="App.saveUser(event,'${edit?.id||""}')"><div class="form-grid"><div class="field"><label>Ad Soyad *</label><input id="u_fullName" required value="${esc(edit?.fullName||"")}"></div><div class="field"><label>E-posta *</label><input id="u_email" type="email" required value="${esc(edit?.email||"")}"></div><div class="field"><label>Rol</label><select id="u_role">${ROLES.filter(([r])=>r!=="super_admin"||state.currentUser.role==="super_admin"||edit?.isSuperAdmin).map(([r,l])=>`<option value="${r}" ${edit?.role===r?"selected":""}>${l}</option>`).join("")}</select></div><div class="field"><label>Birim</label><input id="u_department" value="${esc(edit?.department||"")}"></div><div class="field"><label>Unvan</label><input id="u_title" value="${esc(edit?.title||"")}"></div><div class="field"><label>Telefon</label><input id="u_phone" value="${esc(edit?.phone||"")}"></div>${edit?"":'<div class="field"><label>Geçici Şifre *</label><input id="u_password" type="password" minlength="8" required></div>'}${permissionsEditor(edit)}</div><div class="btn-row"><button class="btn">${edit?"Güncelle":"Kullanıcı Ekle"}</button><button class="btn ghost" type="button" onclick="App.showUsers()">Temizle</button></div></form></div></div>${moduleActions('<button class="btn ghost small" onclick="App.showDashboard()">Anasayfaya Dön</button>')}`;}
+    async function saveUser(e,id=""){e.preventDefault();try{const payload={uid:id,fullName:$("u_fullName").value,email:$("u_email").value,role:$("u_role").value,department:$("u_department").value,title:$("u_title").value,phone:$("u_phone").value,permissions:collectPermissions()};if(!id)payload.password=$("u_password").value;const result=await backendCall(id?"admin_update_user":"admin_create_user",payload);toast(result.message);await ensureCollection("users",true);showUsers();}catch(err){toast(err.message);}}
+    async function toggleUser(id,active){if(!confirm(active?"Kullanıcı aktifleştirilsin mi?":"Kullanıcı pasife alınsın mı?"))return;try{const r=await backendCall("admin_toggle_user",{uid:id,active});toast(r.message);await ensureCollection("users",true);showUsers();}catch(err){toast(err.message);}}
+    async function softDeleteUser(id){if(!confirm("Kullanıcı pasife alınarak arşivlensin mi?"))return;try{const r=await backendCall("admin_soft_delete_user",{uid:id});toast(r.message);await ensureCollection("users",true);showUsers();}catch(err){toast(err.message);}}
+
+    async function showSettings(){if(!can("settings","view")){toast("Ayarlar yetkiniz yok.");return;}state.viewKey="settings";renderNav();setTitle("Ayarlar","Şirket ve dashboard gösterge ayarları");$("view").innerHTML=loadingHtml();const ref=state.db.collection("settings").doc(state.currentUser.organizationId),snap=await ref.get(),s=snap.exists?plainValue(snap.data()):{};$("view").innerHTML=`<form onsubmit="App.saveSettings(event)"><div class="section-card"><div class="section-title"><div><h3>Şirket Ayarları</h3><p class="muted">Gizli API anahtarları bu ekrana değil Streamlit Secrets alanına girilir.</p></div><span class="step-pill">1</span></div><div class="form-grid"><div class="field"><label>Şirket adı</label><input id="s_organizationName" value="${esc(s.organizationName||state.currentUser.organizationName||"PANORIX")}"></div><div class="field"><label>Varsayılan para birimi</label><select id="s_currency">${["TRY","USD","EUR","GBP"].map(x=>`<option ${s.currency===x?"selected":""}>${x}</option>`).join("")}</select></div><div class="field"><label>USD/TRY</label><input id="s_usdtry" type="number" step="any" value="${esc(s.economy?.usdtry||"")}"></div><div class="field"><label>EUR/TRY</label><input id="s_eurtry" type="number" step="any" value="${esc(s.economy?.eurtry||"")}"></div><div class="field"><label>Gram Altın</label><input id="s_gold" type="number" step="any" value="${esc(s.economy?.gold||"")}"></div><div class="field"><label>BIST 100</label><input id="s_bist" type="number" step="any" value="${esc(s.economy?.bist||"")}"></div></div></div><div class="page-actions"><button class="btn">Kaydet</button><button class="btn ghost" type="button" onclick="App.showDashboard()">Anasayfaya Dön</button></div></form>`;}
+    async function saveSettings(e){
+      e.preventDefault();if(!can("settings","update")){toast("Ayar güncelleme yetkiniz yok.");return;}
+      try{
+        const ref=state.db.collection("settings").doc(state.currentUser.organizationId),snap=await ref.get(),old=snap.exists?plainValue(snap.data()):{};
+        const data={organizationId:state.currentUser.organizationId,organizationName:$("s_organizationName").value,currency:$("s_currency").value,economy:{usdtry:Number($("s_usdtry").value||0),eurtry:Number($("s_eurtry").value||0),gold:Number($("s_gold").value||0),bist:Number($("s_bist").value||0)},updatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedBy:state.authUser.uid};
+        const batch=state.db.batch();batch.set(ref,data,{merge:true});await writeAudit(batch,"update","settings",state.currentUser.organizationId,old,{...data,updatedAt:"server_timestamp"});await batch.commit();toast("Ayarlar kaydedildi.");await showSettings();
+      }catch(err){console.error(err);toast(err.message||"Ayarlar kaydedilemedi.");}
+    }
+
+    async function showProfile(){state.viewKey="profile";renderNav();setTitle("Profil ve Şifre","Kullanıcı bilgileri ve Firebase şifre yönetimi");const u=state.currentUser;$("view").innerHTML=`<form onsubmit="App.saveProfile(event)"><div class="section-card"><div class="section-title"><div><h3>Profil Bilgileri</h3><p class="muted">E-posta veya rol değişikliği yönetici ekranından yapılır.</p></div><span class="step-pill">P</span></div><div class="form-grid"><div class="field"><label>E-posta</label><input value="${esc(u.email||"")}" disabled></div><div class="field"><label>Rol</label><input value="${esc(roleName(u.role))}" disabled></div><div class="field"><label>Ad Soyad</label><input id="p_fullName" value="${esc(u.fullName||"")}"></div><div class="field"><label>Telefon</label><input id="p_phone" value="${esc(u.phone||"")}"></div><div class="field"><label>Birim</label><input value="${esc(u.department||"")}" disabled></div><div class="field"><label>Yeni şifre</label><input id="p_password" type="password" minlength="8"></div></div></div><div class="panel"><div class="btn-row"><button class="btn">Profili Güncelle</button><button class="btn ghost" type="button" onclick="App.showDashboard()">Anasayfaya Dön</button></div></div></form>`;}
+    async function saveProfile(e){
+      e.preventDefault();
+      try{
+        const old={fullName:state.currentUser.fullName||"",phone:state.currentUser.phone||""},next={fullName:$("p_fullName").value.trim(),phone:$("p_phone").value.trim(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+        if(!next.fullName)throw new Error("Ad Soyad alanı zorunludur.");
+        const batch=state.db.batch();batch.update(state.db.collection("users").doc(state.authUser.uid),next);await writeAudit(batch,"update_profile","users",state.authUser.uid,old,{fullName:next.fullName,phone:next.phone});await batch.commit();
+        if($("p_password").value){await state.authUser.updatePassword($("p_password").value);await auditEvent("change_password","users",state.authUser.uid,{},{});}
+        await ensureCollection("users",true);const me=getAll("users").find(x=>x.id===state.authUser.uid);if(me)state.currentUser=me;showApp();toast("Profil güncellendi.");await showProfile();
+      }catch(err){console.error(err);toast(err.message||"Profil güncellenemedi.");}
+    }
+
+    function sheetRows(key){const m=MODULES[key];return getList(key).map(r=>{const out={"Kayıt No":r.no||r.code||r.contractNo||r.invoiceNo||""};m.fields.forEach(f=>{let v=r[f[0]];if(REF_TYPES[f[2]])v=refLabel(f[2],v);else if(Array.isArray(v))v=v.map(x=>typeof x==="string"?x:(x.name||JSON.stringify(x))).join(" | ");else if(typeof v==="object"&&v)v=v.name||JSON.stringify(v);out[f[1]]=v??"";});return out;});}
+    function downloadTemplate(key){if(!can(key,"export")){toast("Şablon indirme yetkiniz yok.");return;}const m=MODULES[key];const row={"Kayıt No":""};m.fields.filter(f=>!["file","image"].includes(f[2])).forEach(f=>row[f[1]]="");writeWorkbook(`${m.nav}-Bos-Sablon.xlsx`,key,[row]);auditEvent("download_template",key,"template",{},{}).catch(console.error);}
+    function exportExcel(key){if(!can(key,"export")){toast("Excel dışa aktarma yetkiniz yok.");return;}const rows=sheetRows(key);if(!rows.length){toast("Dışa aktarılacak kayıt yok.");return;}writeWorkbook(`${MODULES[key].nav}.xlsx`,key,rows);auditEvent("export_excel",key,"collection",{},{rowCount:rows.length}).catch(console.error);}
+    function exportCsv(key){
+      if(!can(key,"export")){toast("CSV dışa aktarma yetkiniz yok.");return;}const rows=sheetRows(key);if(!rows.length){toast("Dışa aktarılacak kayıt yok.");return;}
+      const headers=Object.keys(rows[0]),escapeCsv=value=>`"${String(value??"").replaceAll('"','""')}"`,content=[headers.map(escapeCsv).join(";"),...rows.map(row=>headers.map(header=>escapeCsv(row[header])).join(";"))].join("\r\n");
+      const blob=new Blob(["\uFEFF"+content],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=`${MODULES[key].nav}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);auditEvent("export_csv",key,"collection",{},{rowCount:rows.length}).catch(console.error);
+    }
+    function writeWorkbook(filename,sheetName,rows){if(!window.XLSX){toast("Excel kütüphanesi yüklenemedi.");return;}const ws=XLSX.utils.json_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,sheetName.slice(0,31));XLSX.writeFile(wb,filename);}
+    function importExcel(key){
+      if(!can(key,"create")){toast("İçe aktarma yetkiniz yok.");return;}
+      if(["reservations","contracts","payments"].includes(key)){toast("Bu modülde iş akışı ve çakışma kontrolleri nedeniyle kayıtlar form üzerinden oluşturulmalıdır.");return;}
+      const inp=document.createElement("input");inp.type="file";inp.accept=".xlsx,.xls,.csv";inp.onchange=()=>handleImportFile(key,inp.files[0]);inp.click();
+    }
+    function handleImportFile(key,file){
+      if(!file||!window.XLSX){toast("Excel kütüphanesi yüklenemedi.");return;}
+      const reader=new FileReader();
+      reader.onload=async e=>{
+        try{
+          const wb=XLSX.read(e.target.result,{type:"array"}),ws=wb.Sheets[wb.SheetNames[0]],rows=XLSX.utils.sheet_to_json(ws,{defval:""}).filter(row=>Object.values(row).some(value=>String(value).trim())).slice(0,100),m=MODULES[key];
+          if(!rows.length){toast("Dosyada içe aktarılacak kayıt bulunamadı.");return;}
+          let imported=0;const errors=[];
+          for(let index=0;index<rows.length;index++){
+            const src=rows[index],record={};
+            try{
+              m.fields.forEach(f=>{if(["file","image","checklist","multiBillboard","serviceItems"].includes(f[2]))return;const val=src[f[1]]??src[f[0]]??"";record[f[0]]=f[2]==="number"?(val===""?0:Number(val)):String(val).trim();});
+              validateRequiredFields(m,record,null,false);validateBusinessRecord(key,record);
+              const ref=state.db.collection(COLLECTIONS[key]).doc(),no=String(src["Kayıt No"]||"").trim()||await nextSequence(key,m.prefix);
+              const payload={...record,no,organizationId:state.currentUser.organizationId,createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp(),createdBy:state.authUser.uid,createdByName:state.currentUser.fullName||state.currentUser.email,updatedBy:state.authUser.uid,updatedByName:state.currentUser.fullName||state.currentUser.email,isDeleted:false};
+              const batch=state.db.batch();batch.set(ref,payload);await writeAudit(batch,"import",key,ref.id,{},record);await batch.commit();imported+=1;
+            }catch(rowError){errors.push(`${index+2}. satır: ${rowError.message||"Hata"}`);}
+          }
+          state.loaded[key]=false;await ensureCollection(key,true);
+          if(errors.length)openModal("İçe Aktarma Sonucu",`<p><strong>${imported}</strong> kayıt aktarıldı, <strong>${errors.length}</strong> satır atlandı.</p><div class="empty" style="text-align:left;max-height:280px;overflow:auto">${errors.map(esc).join("<br>")}</div>`);
+          else toast(`${imported} kayıt içe aktarıldı.`);
+          await showModule(key);
+        }catch(err){console.error(err);toast("İçe aktarma hatası: "+(err.message||"Bilinmeyen hata"));}
+      };
+      reader.readAsArrayBuffer(file);
+    }
+    async function exportPdf(key){if(!can(key,"export")){toast("PDF dışa aktarma yetkiniz yok.");return;}const m=MODULES[key],rows=sheetRows(key),columns=Object.keys(rows[0]||{"Kayıt No":""}).map(k=>({key:k,label:k}));try{const result=await backendCall("generate_pdf",{title:`PANORIX - ${m.nav}`,subtitle:m.sub,filename:`${m.nav}.pdf`,columns,rows});downloadBase64(result.filename,result.base64,"application/pdf");await auditEvent("export_pdf",key,"collection",{},{rowCount:rows.length});}catch(err){toast(err.message);}}
+    function downloadBase64(filename,data,mime){const a=document.createElement("a");a.href=`data:${mime};base64,${data}`;a.download=filename;a.click();}
+
+    function openModal(title,body,footer=""){$("modalTitle").textContent=title;$("modalBody").innerHTML=body;$("modalFooter").innerHTML=footer||'<button class="btn ghost" onclick="App.closeModal()">Kapat</button>';$("modalBackdrop").classList.remove("hidden");}
+    function closeModal(){$("modalBackdrop").classList.add("hidden");}function backdropClose(e){if(e.target.id==="modalBackdrop")closeModal();}
+    function mobileViewportHeight(){return Math.round(window.visualViewport?.height||window.innerHeight||720);}
+    function fitStreamlitFrame(){const S=window.Streamlit||window.streamlitComponentLib?.Streamlit;S?.setFrameHeight(mobileViewportHeight());document.documentElement.style.setProperty("--mobile-vh",`${mobileViewportHeight()}px`);}
+    function toggleMobileMenu(){const app=$("appPage");if(!app)return;const open=!app.classList.contains("mobile-menu-open");app.classList.toggle("mobile-menu-open",open);$("mobileMenuButton")?.setAttribute("aria-expanded",String(open));}
+    function closeMobileMenu(){$("appPage")?.classList.remove("mobile-menu-open");$("mobileMenuButton")?.setAttribute("aria-expanded","false");}
+
+    async function init(){
+      const S=window.Streamlit||window.streamlitComponentLib?.Streamlit;S?.setComponentReady();fitStreamlitFrame();window.addEventListener("resize",fitStreamlitFrame,{passive:true});window.addEventListener("orientationchange",()=>setTimeout(fitStreamlitFrame,150),{passive:true});window.visualViewport?.addEventListener("resize",fitStreamlitFrame,{passive:true});S?.events?.addEventListener(S.RENDER_EVENT,e=>handleStreamlitArgs(e.detail?.args||{}));$("nav")?.addEventListener("click",e=>{if(e.target.closest("button"))closeMobileMenu();});["pointerdown","keydown","touchstart","scroll"].forEach(evt=>window.addEventListener(evt,()=>{if(state.currentUser)resetSessionWatch();},{passive:true}));
+      try{
+        await waitForArgs();
+        await initFirebase();
+        const adminStatus=state.firebaseArgs?.initial_admin_status||{};
+        state.auth.onAuthStateChanged(async user=>{try{if(user)await handleAuthenticatedUser(user);else showLogin();}catch(err){console.error(err);toast(err.message);showLogin();}});
+        if(adminStatus.ok===false){
+          setTimeout(()=>openModal("Yönetici Hesabı Yapılandırması",`<p class="danger-text">${esc(adminStatus.message||"İlk yönetici hesabı hazırlanamadı.")}</p><p class="muted">Streamlit Secrets içindeki INITIAL_ADMIN ve Firebase Service Account alanlarını kontrol edin.</p>`),300);
+        }
+      }catch(err){console.error(err);showLogin();setTimeout(()=>openModal("Yapılandırma Hatası",`<p class="danger-text">${esc(err.message)}</p><p class="muted">Streamlit Secrets içindeki Firebase Web ayarlarını ve internet erişimini kontrol edin.</p>`),250);}
+    }
+
+    return {init,login,logout,showForgotPassword,sendPasswordReset,toggleMobileMenu,closeMobileMenu,showDashboard,showModule,showModuleForm,saveRecord,deleteRecord,renderModuleRows,openDetail,showCalendar,moveMonth,thisMonth,openCalendarItem,showMap,renderMapMarkers,openMapDetail,showCrm,showFinance,showReports,showAnalytics,showMessages,sendMessage,showNotifications,markNotificationRead,showUsers,saveUser,toggleUser,softDeleteUser,showSettings,saveSettings,showProfile,saveProfile,showBillboardQr,downloadBase64File,downloadTemplate,importExcel,exportExcel,exportCsv,exportPdf,addOfferItem,removeOfferItem,recalcOfferItems,toggleChecklist,openModal,closeModal,backdropClose};
+  })();
+  document.addEventListener("DOMContentLoaded", App.init);
+  
+  </script>
+</body>
+</html>

@@ -1,0 +1,330 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userPath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    function hasProfile() {
+      return signedIn() && exists(userPath());
+    }
+
+    function profile() {
+      return get(userPath()).data;
+    }
+
+    function active() {
+      return hasProfile()
+        && profile().active == true
+        && profile().isDeleted != true;
+    }
+
+    function role() {
+      return active() ? profile().role : 'guest';
+    }
+
+    function organizationId() {
+      return active() ? profile().organizationId : '';
+    }
+
+    function sameOrganization(data) {
+      return active() && data.organizationId == organizationId();
+    }
+
+    function explicitPermission(module, action) {
+      let permissions = profile().permissions;
+      return permissions is map
+        && module in permissions
+        && permissions[module] is map
+        && action in permissions[module]
+        && permissions[module][action] == true;
+    }
+
+    function rolePermission(module, action) {
+      let r = role();
+      return r in ['super_admin', 'admin']
+        || (r == 'manager' && action in ['view', 'create', 'update', 'approve', 'export'])
+        || (r == 'manager' && action == 'delete' && module in ['tasks', 'notifications', 'messages'])
+        || (r == 'sales_manager'
+          && action == 'view'
+          && module in ['municipalities', 'tenders', 'ekapTenders', 'billboards', 'customers', 'leads', 'offers', 'reservations', 'contracts', 'documents', 'invoices', 'payments', 'tasks', 'messages', 'notifications'])
+        || (r == 'sales_manager'
+          && action in ['create', 'update']
+          && module in ['customers', 'leads', 'offers', 'reservations', 'contracts', 'documents', 'tasks', 'messages'])
+        || (r == 'sales_manager'
+          && action == 'approve'
+          && module in ['offers', 'reservations', 'contracts'])
+        || (r == 'sales_manager'
+          && action == 'export'
+          && module in ['customers', 'leads', 'offers', 'reservations', 'contracts'])
+        || (r == 'sales_rep'
+          && action == 'view'
+          && module in ['billboards', 'customers', 'leads', 'offers', 'reservations', 'contracts', 'documents', 'tasks', 'messages', 'notifications'])
+        || (r == 'sales_rep'
+          && action == 'create'
+          && module in ['customers', 'leads', 'offers', 'reservations', 'documents', 'tasks', 'messages'])
+        || (r == 'sales_rep'
+          && action == 'update'
+          && module in ['customers', 'leads', 'offers', 'reservations', 'tasks', 'messages'])
+        || (r == 'sales_rep'
+          && action == 'export'
+          && module in ['customers', 'offers'])
+        || (r == 'accounting'
+          && action == 'view'
+          && module in ['municipalities', 'tenders', 'customers', 'contracts', 'documents', 'invoices', 'payments', 'expenses', 'tasks', 'notifications'])
+        || (r == 'accounting'
+          && action in ['create', 'update']
+          && module in ['documents', 'invoices', 'payments', 'expenses', 'tasks'])
+        || (r == 'accounting'
+          && action == 'approve'
+          && module in ['invoices', 'payments', 'expenses'])
+        || (r == 'accounting'
+          && action == 'export'
+          && module in ['customers', 'contracts', 'invoices', 'payments', 'expenses'])
+        || (r == 'operations_manager'
+          && action == 'view'
+          && module in ['municipalities', 'tenders', 'billboards', 'customers', 'reservations', 'contracts', 'documents', 'operations', 'tasks', 'vehicles', 'messages', 'notifications'])
+        || (r == 'operations_manager'
+          && action in ['create', 'update']
+          && module in ['billboards', 'documents', 'operations', 'tasks', 'vehicles', 'messages'])
+        || (r == 'operations_manager'
+          && action == 'approve'
+          && module in ['operations', 'tasks'])
+        || (r == 'operations_manager'
+          && action == 'export'
+          && module in ['billboards', 'operations', 'tasks', 'vehicles'])
+        || (r == 'operations_staff'
+          && action == 'view'
+          && module in ['billboards', 'customers', 'reservations', 'contracts', 'documents', 'operations', 'tasks', 'vehicles', 'messages', 'notifications'])
+        || (r == 'operations_staff'
+          && action == 'create'
+          && module in ['documents', 'operations', 'tasks', 'messages'])
+        || (r == 'operations_staff'
+          && action == 'update'
+          && module in ['billboards', 'operations', 'tasks', 'messages'])
+        || (r == 'operations_staff'
+          && action == 'export'
+          && module in ['operations', 'tasks'])
+        || (r == 'field_staff'
+          && action == 'view'
+          && module in ['billboards', 'documents', 'operations', 'tasks', 'vehicles', 'messages', 'notifications'])
+        || (r == 'field_staff'
+          && action == 'create'
+          && module in ['documents', 'operations', 'tasks', 'messages'])
+        || (r == 'field_staff'
+          && action == 'update'
+          && module in ['operations', 'tasks', 'messages'])
+        || (r == 'guest'
+          && action == 'view'
+          && module in ['billboards', 'tasks', 'notifications']);
+    }
+
+    function permitted(module, action) {
+      return active() && (explicitPermission(module, action) || rolePermission(module, action));
+    }
+
+    function validCreate(module) {
+      return sameOrganization(request.resource.data)
+        && permitted(module, 'create')
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.isDeleted == false;
+    }
+
+    function validUpdate(module) {
+      let deleting = request.resource.data.isDeleted == true && resource.data.isDeleted != true;
+      let deleteFlagUnchanged = request.resource.data.isDeleted == resource.data.isDeleted;
+      return sameOrganization(resource.data)
+        && sameOrganization(request.resource.data)
+        && request.resource.data.organizationId == resource.data.organizationId
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedBy == request.auth.uid
+        && ((deleting && permitted(module, 'delete'))
+          || (deleteFlagUnchanged && permitted(module, 'update')));
+    }
+
+    match /users/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || (active() && sameOrganization(resource.data) && permitted('users', 'view')));
+      allow list: if active() && sameOrganization(resource.data) && permitted('users', 'view');
+      allow update: if active()
+        && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fullName', 'phone', 'updatedAt']);
+      allow create, delete: if false;
+    }
+
+    match /settings/{orgId} {
+      allow read: if active() && orgId == organizationId();
+      allow create, update: if active()
+        && orgId == organizationId()
+        && request.resource.data.organizationId == organizationId()
+        && permitted('settings', 'update');
+      allow delete: if false;
+    }
+
+    match /counters/{counterId} {
+      allow get: if active() && counterId.matches('^' + organizationId() + '_.*');
+      allow list: if false;
+      allow create: if active()
+        && request.resource.data.organizationId == organizationId()
+        && permitted(request.resource.data.module, 'create');
+      allow update: if active()
+        && resource.data.organizationId == organizationId()
+        && request.resource.data.organizationId == organizationId()
+        && request.resource.data.module == resource.data.module
+        && request.resource.data.value == resource.data.value + 1
+        && permitted(resource.data.module, 'create');
+      allow delete: if false;
+    }
+
+    match /auditLogs/{logId} {
+      allow create: if active()
+        && sameOrganization(request.resource.data)
+        && request.resource.data.userId == request.auth.uid;
+      allow read: if active()
+        && sameOrganization(resource.data)
+        && (role() in ['super_admin', 'admin'] || explicitPermission('auditLogs', 'view'));
+      allow update, delete: if false;
+    }
+
+    match /messages/{messageId} {
+      allow read: if active()
+        && sameOrganization(resource.data)
+        && request.auth.uid in resource.data.participants;
+      allow create: if active()
+        && sameOrganization(request.resource.data)
+        && request.resource.data.senderId == request.auth.uid
+        && request.auth.uid in request.resource.data.participants
+        && permitted('messages', 'create');
+      allow update: if active()
+        && sameOrganization(resource.data)
+        && request.auth.uid in resource.data.participants
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if active()
+        && sameOrganization(resource.data)
+        && (request.auth.uid in resource.data.recipientIds || role() in ['super_admin', 'admin']);
+      allow create: if active()
+        && sameOrganization(request.resource.data)
+        && permitted('notifications', 'create');
+      allow update: if active()
+        && sameOrganization(resource.data)
+        && request.auth.uid in resource.data.recipientIds
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    match /municipalities/{id} {
+      allow read: if sameOrganization(resource.data) && permitted('municipalities', 'view');
+      allow create: if validCreate('municipalities');
+      allow update: if validUpdate('municipalities');
+      allow delete: if false;
+    }
+    match /tenders/{id} {
+      allow read: if sameOrganization(resource.data) && permitted('tenders', 'view');
+      allow create: if validCreate('tenders');
+      allow update: if validUpdate('tenders');
+      allow delete: if false;
+    }
+    match /ekapTenders/{id} {
+      allow read: if sameOrganization(resource.data) && permitted('ekapTenders', 'view');
+      allow create: if validCreate('ekapTenders');
+      allow update: if validUpdate('ekapTenders');
+      allow delete: if false;
+    }
+    match /billboards/{id} {
+      allow read: if sameOrganization(resource.data) && permitted('billboards', 'view');
+      allow create: if validCreate('billboards');
+      allow update: if validUpdate('billboards');
+      allow delete: if false;
+    }
+    match /customers/{id} {
+      allow read: if sameOrganization(resource.data) && permitted('customers', 'view');
+      allow create: if validCreate('customers');
+      allow update: if validUpdate('customers');
+      allow delete: if false;
+    }
+    match /leads/{id} {
+      allow read: if sameOrganization(resource.data) && permitted('leads', 'view');
+      allow create: if validCreate('leads');
+      allow update: if validUpdate('leads');
+      allow delete: if false;
+    }
+    match /offers/{id} {
+      allow read: if sameOrganization(resource.data) && permitted('offers', 'view');
+      allow create: if validCreate('offers');
+      allow update: if validUpdate('offers');
+      allow delete: if false;
+    }
+    match /reservations/{id} {
+      allow read: if sameOrganization(resource.data) && permitted('reservations', 'view');
+      allow create: if validCreate('reservations');
+      allow update: if validUpdate('reservations');
+      allow delete: if false;
+    }
+    match /contracts/{id} {
+      allow read: if sameOrganization(resource.data) && permitted('contracts', 'view');
+      allow create: if validCreate('contracts');
+      allow update: if validUpdate('contracts');
+      allow delete: if false;
+    }
+    match /documents/{id} {
+      allow read: if sameOrganization(resource.data) && permitted('documents', 'view');
+      allow create: if validCreate('documents');
+      allow update: if validUpdate('documents');
+      allow delete: if false;
+    }
+    match /invoices/{id} {
+      allow read: if sameOrganization(resource.data) && permitted('invoices', 'view');
+      allow create: if validCreate('invoices');
+      allow update: if validUpdate('invoices');
+      allow delete: if false;
+    }
+    match /payments/{id} {
+      allow read: if sameOrganization(resource.data) && permitted('payments', 'view');
+      allow create: if validCreate('payments');
+      allow update: if validUpdate('payments');
+      allow delete: if false;
+    }
+    match /expenses/{id} {
+      allow read: if sameOrganization(resource.data) && permitted('expenses', 'view');
+      allow create: if validCreate('expenses');
+      allow update: if validUpdate('expenses');
+      allow delete: if false;
+    }
+    match /operations/{id} {
+      allow read: if sameOrganization(resource.data) && permitted('operations', 'view');
+      allow create: if validCreate('operations');
+      allow update: if validUpdate('operations');
+      allow delete: if false;
+    }
+    match /tasks/{id} {
+      allow read: if sameOrganization(resource.data) && permitted('tasks', 'view');
+      allow create: if validCreate('tasks');
+      allow update: if validUpdate('tasks');
+      allow delete: if false;
+    }
+    match /vehicles/{id} {
+      allow read: if sameOrganization(resource.data) && permitted('vehicles', 'view');
+      allow create: if validCreate('vehicles');
+      allow update: if validUpdate('vehicles');
+      allow delete: if false;
+    }
+    match /competitors/{id} {
+      allow read: if sameOrganization(resource.data) && permitted('competitors', 'view');
+      allow create: if validCreate('competitors');
+      allow update: if validUpdate('competitors');
+      allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

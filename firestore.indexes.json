@@ -1,0 +1,21 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "messages",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "organizationId", "order": "ASCENDING"},
+        {"fieldPath": "participants", "arrayConfig": "CONTAINS"}
+      ]
+    },
+    {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "organizationId", "order": "ASCENDING"},
+        {"fieldPath": "recipientIds", "arrayConfig": "CONTAINS"}
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
