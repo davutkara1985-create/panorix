@@ -7,6 +7,10 @@ import json
 import os
 import shutil
 import tempfile
+import threading
+import time
+import urllib.parse
+import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +30,91 @@ import qrcode
 
 APP_TITLE = "PANORIX"
 APP_SLOGAN = "Şehir Reklamlarının Tüm Gücü Tek Merkezde"
+
+
+_GEOCODE_LOCK = threading.Lock()
+_GEOCODE_LAST_REQUEST = 0.0
+_GEOCODE_CACHE: dict[str, dict[str, Any]] = {}
+
+
+def _geocode_address(payload: dict[str, Any]) -> dict[str, Any]:
+    """Resolve one user-submitted Turkish address with the public Nominatim API.
+
+    The call is made only when the user saves a billboard record. Results are
+    stored in Firestore with the billboard, so the same address is not queried
+    on every map view.
+    """
+    raw_address = str(payload.get("address") or "").strip()
+    if len(raw_address) < 8:
+        raise ValueError(
+            "Harita konumu bulunabilmesi için açık adres, ilçe ve il bilgilerini eksiksiz girin."
+        )
+
+    normalized = " ".join(raw_address.split()).casefold()
+    cached = _GEOCODE_CACHE.get(normalized)
+    if cached:
+        return cached
+
+    params = urllib.parse.urlencode(
+        {
+            "q": raw_address,
+            "format": "jsonv2",
+            "limit": 1,
+            "countrycodes": "tr",
+            "addressdetails": 1,
+            "accept-language": "tr",
+        }
+    )
+    url = f"https://nominatim.openstreetmap.org/search?{params}"
+    app_url = str(_secret("APP_PUBLIC_URL", "") or "https://streamlit.io").strip()
+    contact = str(_secret("INITIAL_ADMIN_EMAIL", "") or "admin@panorix.local").strip()
+    request = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": f"PANORIX/1.0 ({app_url}; contact: {contact})",
+            "Accept": "application/json",
+            "Accept-Language": "tr",
+            "Referer": app_url if app_url.startswith(("http://", "https://")) else "",
+        },
+    )
+
+    global _GEOCODE_LAST_REQUEST
+    with _GEOCODE_LOCK:
+        wait_seconds = 1.05 - (time.monotonic() - _GEOCODE_LAST_REQUEST)
+        if wait_seconds > 0:
+            time.sleep(wait_seconds)
+        try:
+            with urllib.request.urlopen(request, timeout=15) as response:
+                data = json.loads(response.read().decode("utf-8"))
+        except Exception as exc:
+            raise RuntimeError(
+                "Adres harita servisinde aranamadı. İnternet bağlantısını kontrol edip tekrar deneyin."
+            ) from exc
+        finally:
+            _GEOCODE_LAST_REQUEST = time.monotonic()
+
+    if not isinstance(data, list) or not data:
+        raise ValueError(
+            "Adres haritada bulunamadı. Mahalle, cadde/sokak, bina numarası, ilçe ve il bilgilerini kontrol edin."
+        )
+
+    item = data[0]
+    try:
+        latitude = float(item["lat"])
+        longitude = float(item["lon"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise RuntimeError("Harita servisi geçerli bir koordinat döndürmedi.") from exc
+
+    result = {
+        "latitude": latitude,
+        "longitude": longitude,
+        "displayName": str(item.get("display_name") or raw_address),
+        "source": "OpenStreetMap Nominatim",
+    }
+    _GEOCODE_CACHE[normalized] = result
+    return result
+
+
 ALLOWED_ROLES = {
     "super_admin",
     "admin",
@@ -692,6 +781,8 @@ def _handle_backend_request(value: object) -> None:
             result = _pdf_report(payload)
         elif action == "generate_qr":
             result = _generate_qr(payload)
+        elif action == "geocode_address":
+            result = _geocode_address(payload)
         else:
             raise ValueError("Desteklenmeyen sunucu işlemi.")
         response = {"type": "backend_response", "requestId": request_id, "ok": True, "result": result}
@@ -739,7 +830,6 @@ component_value = panorix_component(
     key="panorix_erp",
     default=None,
     firebase_config=_firebase_web_config(),
-    google_maps_api_key=str(_secret("GOOGLE_MAPS_API_KEY", "") or ""),
     app_public_url=str(_secret("APP_PUBLIC_URL", "") or ""),
     deep_link_billboard=str(st.query_params.get("billboard", "") or ""),
     app_name=APP_TITLE,
