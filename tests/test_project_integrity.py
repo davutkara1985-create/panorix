@@ -151,8 +151,9 @@ def test_browser_integrations_and_exports_are_wired() -> None:
         "firebase-storage-compat.js",
         "xlsx.full.min.js",
         "function exportCsv(key)",
-        "function loadGoogleMaps()",
-        "MarkerClusterer",
+        "function loadOpenStreetMap()",
+        "leaflet.markercluster",
+        "function geocodeBillboard(data,old)",
         'id="loginFormWrap"',
     ):
         assert token in html
@@ -160,7 +161,7 @@ def test_browser_integrations_and_exports_are_wired() -> None:
 
 def test_sensitive_workflow_imports_are_blocked() -> None:
     html = (ROOT / "index.html").read_text(encoding="utf-8")
-    assert '["reservations","contracts","payments"].includes(key)' in html
+    assert '["reservations","contracts","payments","billboards"].includes(key)' in html
     assert "iş akışı ve çakışma kontrolleri" in html
 
 
@@ -194,3 +195,13 @@ def test_real_initial_admin_password_is_not_committed() -> None:
             continue
         content = path.read_text(encoding="utf-8", errors="ignore")
         assert sensitive_fragment not in content, f"Yönetici parolası repository içinde bulundu: {path}"
+
+
+def test_billboard_address_is_geocoded_on_save() -> None:
+    html = (ROOT / "index.html").read_text(encoding="utf-8")
+    app = (ROOT / "app.py").read_text(encoding="utf-8")
+    assert 'await geocodeBillboard(data,old)' in html
+    assert 'backendCall("geocode_address"' in html
+    assert 'nominatim.openstreetmap.org/search' in app
+    assert 'countrycodes' in app
+    assert 'OpenStreetMap Nominatim' in app
