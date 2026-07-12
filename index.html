@@ -1744,11 +1744,29 @@
       return `${can(key,"create")?`<button class="btn secondary small" onclick="App.showModuleForm('${key}')">Yeni Kayıt</button>`:""}${can(key,"export")?`<button class="btn secondary small" onclick="App.downloadTemplate('${key}')">Boş Excel Şablonu</button><button class="btn secondary small" onclick="App.importExcel('${key}')">İçe Aktar</button><button class="btn ghost small" onclick="App.exportExcel('${key}')">Excel</button><button class="btn ghost small" onclick="App.exportCsv('${key}')">CSV</button><button class="btn ghost small" onclick="App.exportPdf('${key}')">PDF</button>`:""}<button class="btn ghost small" onclick="App.showDashboard()">Anasayfaya Dön</button>`;
     }
     function moduleActions(html){ return `<div class="page-actions">${html}</div>`; }
+    function ekapSyncStatusBadge(status){
+      const labels={success:"Başarılı",partial:"Kısmi Başarılı",error:"Hata",running:"Çalışıyor"};
+      const css=status==="success"?"success":status==="error"?"danger":"warning";
+      return `<span class="badge ${css}">${esc(labels[status]||"Henüz Çalışmadı")}</span>`;
+    }
+    async function ekapSyncPanelHtml(){
+      try{
+        const snap=await state.db.collection("settings").doc(state.currentUser.organizationId).get();
+        const sync=snap.exists?plainValue(snap.data())?.ekapSync||{}:{};
+        if(!sync.lastRunAt)return `<div class="panel" style="margin-bottom:16px"><div class="mini-item"><div><strong>Otomatik EKAP Takibi</strong><span>GitHub Actions ilk kez çalıştırıldığında son tarama bilgisi burada görünecek.</span></div>${ekapSyncStatusBadge("")}</div></div>`;
+        const errorText=Array.isArray(sync.errors)&&sync.errors.length?`<div class="empty" style="margin-top:10px;text-align:left">${sync.errors.slice(0,3).map(esc).join("<br>")}</div>`:"";
+        return `<div class="panel" style="margin-bottom:16px"><div class="mini-item"><div><strong>Otomatik EKAP Takibi</strong><span>Son tarama: ${new Date(sync.lastRunAt).toLocaleString("tr-TR")} • Yeni: ${Number(sync.newCount||0)} • Güncellenen: ${Number(sync.updatedCount||0)} • İşlenen: ${Number(sync.matchedCount||0)}</span></div>${ekapSyncStatusBadge(sync.status)}</div>${errorText}</div>`;
+      }catch(error){
+        console.warn("EKAP senkronizasyon durumu okunamadı",error);
+        return "";
+      }
+    }
     async function showModule(key){
       if(!can(key,"view")){toast("Bu modül için görüntüleme yetkiniz yok.");return;}
       state.viewKey=key;state.activeModule=key;renderNav();const m=MODULES[key];setTitle(m.title,m.sub);$("view").innerHTML=loadingHtml();
       await ensureDependencies(key);
-      $("view").innerHTML=`<div class="page-head motto-head"><div class="motto-title"><p>${esc(m.sub)}</p></div></div><div class="panel module-list-panel">${moduleActions(moduleButtons(key))}<div class="filters"><div class="field"><label>Arama</label><input id="moduleSearch" oninput="App.renderModuleRows('${key}')" placeholder="${esc(m.search)}"></div><div class="field"><label>Durum / kategori</label><select id="moduleFilter" onchange="App.renderModuleRows('${key}')"><option value="">Tümü</option>${filterOptions(key).map(x=>`<option>${esc(x)}</option>`).join("")}</select></div><div class="field"><label>Başlangıç</label><input id="dateStart" type="date" onchange="App.renderModuleRows('${key}')"></div><div class="field"><label>Bitiş</label><input id="dateEnd" type="date" onchange="App.renderModuleRows('${key}')"></div>${can(key,"create")?`<button class="btn secondary small" onclick="App.showModuleForm('${key}')">Yeni Kayıt</button>`:""}</div><div id="moduleRows"></div></div>`;
+      const integrationPanel=key==="ekapTenders"?await ekapSyncPanelHtml():"";
+      $("view").innerHTML=`<div class="page-head motto-head"><div class="motto-title"><p>${esc(m.sub)}</p></div></div>${integrationPanel}<div class="panel module-list-panel">${moduleActions(moduleButtons(key))}<div class="filters"><div class="field"><label>Arama</label><input id="moduleSearch" oninput="App.renderModuleRows('${key}')" placeholder="${esc(m.search)}"></div><div class="field"><label>Durum / kategori</label><select id="moduleFilter" onchange="App.renderModuleRows('${key}')"><option value="">Tümü</option>${filterOptions(key).map(x=>`<option>${esc(x)}</option>`).join("")}</select></div><div class="field"><label>Başlangıç</label><input id="dateStart" type="date" onchange="App.renderModuleRows('${key}')"></div><div class="field"><label>Bitiş</label><input id="dateEnd" type="date" onchange="App.renderModuleRows('${key}')"></div>${can(key,"create")?`<button class="btn secondary small" onclick="App.showModuleForm('${key}')">Yeni Kayıt</button>`:""}</div><div id="moduleRows"></div></div>`;
       renderModuleRows(key);
     }
 
